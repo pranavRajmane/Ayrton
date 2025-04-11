@@ -1,0 +1,96 @@
+# Physical Group Selection System in Online3DViewer
+
+This document explains how physical group selection is implemented across various files in the Online3DViewer codebase.
+
+## Core Files and Their Roles
+
+### 1. Model Definition (source/engine/model/property.js)
+The fundamental class that defines physical groups is `PhysicalGroup` in `property.js`. This class:
+- Stores the physical group's name
+- Maintains a `Set` of mesh IDs that belong to the group
+- Tracks face indices for each mesh using a `Map` where mesh IDs are keys and arrays of face indices are values
+- Provides methods for adding and removing meshes from the group
+- Offers utilities for checking if a mesh is in the group and retrieving face indices
+
+### 2. Storage in Model (source/engine/model/model.js)
+The `Model` class stores physical groups in an array property:
+```javascript
+this.physicalGroups = [];
+```
+
+It provides these key methods related to physical groups:
+- `GetPhysicalGroup(index)`: Gets a group by index
+- `PhysicalGroupCount()`: Returns the number of groups
+- `AddPhysicalGroup(group)`: Adds a new group to the model
+- `RemovePhysicalGroup(index)`: Removes a group by index
+
+### 3. Export Selection (source/website/exportdialog.js)
+The physical group selection for export is handled in the export dialog. Key parts:
+
+- The dialog creates checkboxes for each physical group
+- Selected groups are stored in an array of group indices
+- These selections are then passed to the exporter through the `exporterSettings` object:
+```javascript
+exporterSettings.selectedGroups = selectedGroups;
+exporterSettings.exportSelectedOnly = true;
+```
+
+### 4. Exporter Configuration (source/engine/export/exportermodel.js)
+The `ExporterModel` class maintains settings for export operations, including:
+- `exportPhysicalGroups`: Flag to enable physical group export 
+- `selectedGroups`: Array of group indices selected for export
+- `exportSelectedOnly`: Flag to export only selected groups
+- `exportRemainder`: Flag to export the remainder (unassigned geometry)
+
+### 5. Export Implementation (source/engine/export/exporterstl.js)
+The actual export of selected groups is handled in the STL exporter:
+
+- The `ExportPhysicalGroups` method reads the `selectedGroups` array
+- It processes each physical group and checks if it's included in the selection
+- For selected groups, it creates filtered models containing only the relevant meshes
+- Maintains tracking of which meshes/faces have been exported to enable remainder export
+
+### 6. Selection Interface (source/website/website.js)
+The website interface has methods for interacting with physical groups:
+- `ShowPhysicalGroupsDialog()`: Shows the groups dialog
+- `IsolatePhysicalGroup(groupIndex)`: Isolates a specific group visually
+- `ExportPhysicalGroupAsStl(groupIndex)`: Direct export of a single group
+
+### 7. Navigator (source/website/navigator.js, source/website/navigatormeshespanel.js)
+The navigator panels allow:
+- Selection of mesh items associated with physical groups
+- Tracking of visible/hidden states of meshes
+- Methods for hiding/showing meshes based on groups
+
+## Data Flow for Physical Group Selection
+
+1. **Creation**: Physical groups are created during model import (primarily from CAD files)
+2. **Storage**: Groups are stored in the model.physicalGroups array
+3. **Selection**:
+   - User selects groups in export dialog
+   - Selection is stored as indices in an array
+   - The array is passed to the exporter via settings object
+4. **Filtering**:
+   - Exporter creates filtered models for each selected group
+   - Each filtered model contains only meshes from the corresponding group
+   - If exporting unassigned geometry, a model is created with meshes not in any group
+5. **Export**:
+   - Each filtered model is exported according to format-specific requirements
+   - For STL, separate files can be created for each group
+
+## Identifying Unassigned Geometry
+
+The system tracks which meshes and faces have been assigned to groups:
+- A Map tracks which mesh faces have already been added to groups
+- When exporting "remainder" or "unassigned" geometry, the system:
+  1. Creates a new model
+  2. Adds only meshes not in any group
+  3. For partially-assigned meshes, adds only unassigned faces
+
+## Potential Improvements
+
+1. Add physical group selection persistence between sessions
+2. Implement group hierarchy visualization
+3. Add color coding for different physical groups
+4. Improve performance for models with many groups
+5. Add ability to create new physical groups from the interface

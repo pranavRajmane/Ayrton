@@ -1,0 +1,25 @@
+#!/bin/bash
+# OpenFOAM run script with mesh generation and solver execution
+
+echo "Creating blockMesh using Python script..."
+python3 createBlockMesh.py constant/triSurface/model.stl
+
+echo "Running blockMesh..."
+blockMesh
+
+echo "Running snappyHexMesh..."
+snappyHexMesh -overwrite
+
+echo "Running topoSet..."
+topoSet
+
+echo "Running decomposePar..."
+decomposePar
+
+echo "Running foamRun in parallel..."
+mpirun -np 4 foamRun -parallel
+
+echo "Running reconstructPar..."
+reconstructPar
+
+echo "Simulation complete."

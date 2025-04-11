@@ -1,0 +1,69 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      topoSetDict;
+}
+
+actions
+(
+    // Create face sets for each patch
+    {
+        name    allFaces;
+        type    faceSet;
+        action  new;
+        source  patchToFace;
+        sourceInfo
+        {
+            name inlet;
+        }
+    }
+
+    {
+        name    allFaces;
+        type    faceSet;
+        action  add;
+        source  patchToFace;
+        sourceInfo
+        {
+            name riser;
+        }
+    }
+
+    {
+        name    allFaces;
+        type    faceSet;
+        action  add;
+        source  patchToFace;
+        sourceInfo
+        {
+            name model;
+        }
+    }
+
+    // Convert face sets to cell sets
+    {
+        name    fluidCells;
+        type    cellSet;
+        action  new;
+        source  faceToCell;
+        sourceInfo
+        {
+            set     allFaces;
+            option  any;
+        }
+    }
+
+    // Convert cell set to cell zone
+    {
+        name    fluid;  // Changed from internalMesh to fluid
+        type    cellZoneSet;
+        action  new;
+        source  setToCellZone;
+        sourceInfo
+        {
+            set fluidCells;
+        }
+    }
+);

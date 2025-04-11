@@ -1,0 +1,97 @@
+.merger-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: calc(100vh - 80px);
+    overflow: auto;
+}
+
+.merger-panel {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    width: 100%;
+    max-width: 600px;
+    margin: 20px;
+    overflow: hidden;
+}
+
+.merger-panel-title {
+    font-size: 20px;
+    font-weight: bold;
+    background: #f1f1f1;
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.merger-panel-content {
+    padding: 20px;
+}
+
+.merger-panel-section {
+    margin-bottom: 20px;
+}
+
+.merger-panel-text {
+    margin-bottom: 15px;
+    line-height: 1.5;
+    color: #333;
+}
+
+.merger-panel-label {
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.merger-panel-input input[type="file"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.merger-panel-buttons {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.merger-panel-button {
+    display: inline-block;
+    padding: 10px 25px;
+    background-color: #3498db;
+    color: white;
+    cursor: pointer;
+    border-radius: 4px;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.merger-panel-button:hover {
+    background-color: #2980b9;
+}
+
+.merger-panel-progress {
+    margin-top: 20px;
+    width: 100%;
+    height: 20px;
+    background-color: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.merger-panel-progress-bar {
+    height: 100%;
+    background-color: #4CAF50;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.merger-panel-progress-text {
+    margin-top: 5px;
+    text-align: center;
+    font-size: 14px;
+    color: #666;
+}

@@ -1,0 +1,116 @@
+# Physical Group Selection and Export in Online3DViewer
+
+## Overview
+
+Online3DViewer supports physical groups, which allow you to organize and selectively export parts of your 3D model. This document explains how physical groups work, how they're selected, and how they're exported to CAD formats.
+
+## Physical Group Concepts
+
+### What are Physical Groups?
+
+Physical groups are collections of mesh elements (faces/triangles) that can be logically grouped together. They're useful for:
+
+- Organizing complex models into logical components
+- Selecting specific parts of a model for export
+- Maintaining structure when transferring between CAD systems
+- Preserving metadata about model components
+
+### Physical Group Structure
+
+In Online3DViewer, a physical group:
+- Has a unique name
+- Contains references to specific mesh instances
+- Can track individual face/triangle indices within those meshes
+- Can optionally have color or other metadata
+
+## Selection of Physical Groups
+
+### UI Selection
+
+Physical groups can be selected in the UI through:
+
+1. The Navigator panel's "Physical Groups" section
+2. The model view by clicking on parts of the model (if groups are defined)
+3. The selection toolbar for multi-group selection
+
+### Selection States
+
+Physical groups have three primary selection states:
+- Unselected: All geometry is visible but the group isn't active
+- Selected: The group is active for operations (export, hide/show)
+- Isolated: Only this group is visible; all other geometry is hidden
+
+## Exporting Physical Groups
+
+### Export Modes
+
+When exporting physical groups, you have three options:
+
+1. **Export All Groups**: All defined physical groups and unassigned geometry are exported
+2. **Export Selected Groups Only**: Only selected physical groups are exported
+3. **Export Remaining Model**: Only unassigned geometry (not in any physical group) is exported
+
+### IGES Export Process
+
+When exporting to IGES format:
+
+1. The exporter collects all vertices and triangles for the model
+2. It identifies which triangles belong to each physical group
+3. It creates a special "Unassigned_Faces" group for triangles not assigned to any group
+4. The data is sent to the server which:
+   - Creates a basic IGES file with the geometry
+   - Generates metadata about physical groups
+   - Uses GMsh to apply the physical groups to the IGES file
+   - Returns the final IGES file with proper group definitions
+
+### STEP Export Process
+
+When exporting to STEP format:
+
+1. Similar to IGES, all geometry is collected
+2. Physical groups are represented as descriptive entities in the STEP file
+3. Group metadata includes:
+   - Group name
+   - Approximate triangle count
+   - Mesh references
+4. Unassigned geometry is collected in an "Unassigned_Faces" group
+
+## Technical Implementation
+
+### Physical Group Tracking
+
+Physical groups are implemented through:
+- `PhysicalGroup` class in `property.js`
+- Storage of mesh instance references and face indices
+- Runtime tracking of selection state
+
+### Export Implementation
+
+The export process involves:
+
+1. **Client-side Processing**:
+   - `exporteriges.js` and `exporterstep.js` collect geometry
+   - Triangle indices are mapped to physical groups
+   - Unassigned triangles are identified and collected
+
+2. **Server-side Processing**:
+   - `gmsh_export.py` creates the initial IGES/STEP file
+   - `apply_groups.py` uses GMsh API to create physical groups
+   - Special handling ensures unassigned faces get proper representation
+
+## Best Practices
+
+For best results when working with physical groups:
+
+1. Create logical groups before export
+2. Use descriptive names for groups
+3. Ensure groups don't overlap unnecessarily
+4. When exporting selected groups only, verify selection is complete
+5. For complex models, consider exporting groups individually
+
+## Troubleshooting
+
+- If exports are missing geometry, check if "Export Remaining Model" option is needed
+- If groups appear incorrect, verify group selection in the UI
+- For very large models, exports might be limited to a subset of triangles
+- Server must be running for IGES/STEP export with physical groups

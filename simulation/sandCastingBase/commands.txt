@@ -1,0 +1,49 @@
+python3 create_msh_file.py
+gmshToFoam casting_model.msh
+python3 fix_moldWalls.py
+foamRun
+
+foamCleanTutorials
+
+//------------------------------------------------//
+
+blockMesh
+snappyHexMesh -overwrite
+topoSet
+foamRun
+
+//-----------------------------------------------//
+
+subsetMesh -overwrite -noFields allGeometryCells
+
+
+
+# Backup the original
+cp system/blockMeshDict system/blockMeshDict.backup
+
+# Replace with the new one
+cp blockMeshDict system/blockMeshDict
+
+
+//stl file is in cm 
+
+surfaceTransformPoints "scale=(0.1 0.1 0.1)" constant/triSurface/merimesh.stl constant/triSurface/merimesh_scaled.stl
+
+
+
+
+
+
+
+decomposePar
+mpirun -np 4 foamRun -parallel
+reconstructPar
+
+
+
+
+python3 calculate_filling_time.py  constant/triSurface/model.st
+l constant/triSurface/inlet.stl 0.5 --density 2700 --viscosity 0.0013 --temp 700
+
+
+python3 calculate_filling_time.py model.stl inlet.stl 0.5 --density 2700 --viscosity 0.0013 --temp 700 --volume 0.00446664 --area 0.0008995

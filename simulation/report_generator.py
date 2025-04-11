@@ -1,0 +1,1759 @@
+#!/usr/bin/env python3
+"""
+Report Generator for OpenFOAM Casting Simulation Analyzer
+Generates comprehensive PDF reports with detailed analysis results
+"""
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
+from datetime import datetime
+import textwrap
+from matplotlib.ticker import MaxNLocator
+
+
+def generate_report(sim_case_dir, results, config):
+    """Generate a PDF report with analysis results and recommendations"""
+    try:
+        report_file = f"{sim_case_dir}_report.pdf"
+        
+        # Set up better plot styling
+        plt.style.use('seaborn-v0_8-whitegrid')
+        plt.rcParams['figure.figsize'] = (8.5, 11)
+        plt.rcParams['font.size'] = 11
+        
+        with PdfPages(report_file) as pdf:
+            # Generate title page
+            create_title_page(pdf, sim_case_dir, results, config)
+            
+            # Generate executive summary page
+            create_executive_summary(pdf, results, config)
+            
+            # Generate detailed analysis pages
+            create_fill_analysis_page(pdf, results, config)
+            create_temperature_analysis_page(pdf, results, config)
+            create_flow_analysis_page(pdf, results, config)
+            create_turbulence_analysis_page(pdf, results, config)
+            
+            # Generate issues and recommendations page
+            quality_assessment = results.get('quality_assessment', {})
+            issues = quality_assessment.get('issues', [])
+            recommendations = quality_assessment.get('recommendations', [])
+            create_issues_page(pdf, issues, recommendations)
+            
+            # Generate simulation parameters details page
+            create_simulation_details_page(pdf, results, config)
+            
+            # Generate recommendations for operators page
+            create_operator_recommendations(pdf, results, config)
+            
+            # Generate process assessment page
+            create_process_assessment_page(pdf, results, config)
+        
+        print(f"\nEnhanced PDF report generated: {report_file}")
+        return report_file
+        
+    except Exception as e:
+        print(f"Error generating report: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+def create_title_page(pdf, sim_case_dir, results, config):
+    """Create title page for the report"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.9, "OpenFOAM Casting Simulation Analysis", fontsize=24, ha='center', fontweight='bold')
+    plt.text(0.5, 0.85, "Comprehensive Technical Report", fontsize=18, ha='center')
+    plt.text(0.5, 0.77, f"Simulation: {sim_case_dir}", fontsize=14, ha='center')
+    plt.text(0.5, 0.73, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", fontsize=12, ha='center')
+    
+    # Material information
+    plt.text(0.1, 0.65, "Material Properties:", fontsize=14, fontweight='bold')
+    plt.text(0.15, 0.61, f"Material: {config['material']['name']}", fontsize=12)
+    plt.text(0.15, 0.58, f"Density: {config['material']['density']} kg/m³", fontsize=12)
+    plt.text(0.15, 0.55, f"Specific Heat: {config['material'].get('specific_heat', 'N/A')} J/kg·K", fontsize=12)
+    plt.text(0.15, 0.52, f"Thermal Conductivity: {config['material'].get('thermal_conductivity', 'N/A')} W/m·K", fontsize=12)
+    plt.text(0.15, 0.49, f"Pouring Temperature: {config['casting']['pouring_temperature']}°C", fontsize=12)
+    
+    # Simulation parameters
+    plt.text(0.1, 0.43, "Simulation Parameters:", fontsize=14, fontweight='bold')
+    plt.text(0.15, 0.39, f"Cavity Volume: {results.get('cavity_volume', 'N/A'):.6f} m³", fontsize=12)
+    plt.text(0.15, 0.36, f"Metal Mass: {results.get('metal_mass', 'N/A'):.2f} kg", fontsize=12)
+    plt.text(0.15, 0.33, f"Mass Flow Rate: {config['casting']['target_mass_flowrate']} kg/s", fontsize=12)
+    plt.text(0.15, 0.30, f"Calculated Fill Time: {results.get('fill_time', 'N/A'):.2f} s", fontsize=12)
+    plt.text(0.15, 0.27, f"Reynolds Number: {results.get('reynolds_number', 'N/A'):.2f}", fontsize=12)
+    
+    # Quality assessment summary
+    quality_assessment = results.get('quality_assessment', {})
+    issues = quality_assessment.get('issues', [])
+    status = quality_assessment.get('overall_status', 'Unknown')
+    
+    plt.text(0.1, 0.21, "Quality Assessment:", fontsize=14, fontweight='bold')
+    plt.text(0.15, 0.17, f"Overall Status: {status}", fontsize=14, 
+             color='green' if status == 'Satisfactory' else 'red', fontweight='bold')
+    
+    if issues:
+        plt.text(0.15, 0.13, f"Issues Detected: {len(issues)}", fontsize=12)
+        plt.text(0.15, 0.10, f"Recommendations: {len(quality_assessment.get('recommendations', []))}", fontsize=12)
+    else:
+        plt.text(0.15, 0.13, "No issues detected", fontsize=12, color='green')
+    
+    # Add contact info
+    plt.text(0.5, 0.04, "Generated by OpenFOAM Casting Simulation Analyzer", fontsize=10, ha='center')
+    plt.text(0.5, 0.02, f"Report Version: 2.0 - {datetime.now().strftime('%Y%m%d')}", fontsize=8, ha='center')
+    
+    pdf.savefig()
+    plt.close()
+
+
+def create_executive_summary(pdf, results, config):
+    """Create executive summary page"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.95, "Executive Summary", fontsize=18, ha='center', fontweight='bold')
+    
+    # Quality Assessment Results
+    quality_assessment = results.get('quality_assessment', {})
+    status = quality_assessment.get('overall_status', 'Unknown')
+    issues = quality_assessment.get('issues', [])
+    
+    y_pos = 0.90
+    plt.text(0.1, y_pos, "Simulation Analysis Results:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    plt.text(0.15, y_pos, f"Overall Quality Assessment: {status}", fontsize=12, 
+             color='green' if status == 'Satisfactory' else 'red', fontweight='bold')
+    y_pos -= 0.03
+    
+    # Key metrics summary
+    y_pos -= 0.02
+    plt.text(0.15, y_pos, "Key Process Metrics:", fontsize=12, fontweight='bold')
+    y_pos -= 0.03
+    
+    # Fill status
+    if 'fill_status' in results:
+        fill_status = results['fill_status']
+        if 'unfilled_percentage' in fill_status:
+            unfilled = fill_status.get('unfilled_percentage', 0) * 100
+            plt.text(0.2, y_pos, f"Fill Status: {100-unfilled:.1f}% filled", fontsize=11)
+            y_pos -= 0.025
+    
+    # Temperature
+    if 'temperature' in results:
+        temp = results['temperature']
+        if 'min' in temp and 'max' in temp:
+            plt.text(0.2, y_pos, f"Temperature Range: {temp.get('min', 0):.1f}°C to {temp.get('max', 0):.1f}°C", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, f"Temperature Gradient: {temp.get('range', 0):.1f}°C", fontsize=11)
+            y_pos -= 0.025
+    
+    # Velocity
+    if 'velocity' in results:
+        vel = results['velocity']
+        if 'max' in vel:
+            plt.text(0.2, y_pos, f"Maximum Velocity: {vel.get('max', 0):.2f} m/s", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, f"Average Velocity: {vel.get('average', 0):.2f} m/s", fontsize=11)
+            y_pos -= 0.025
+    
+    # Turbulence
+    if 'turbulence' in results:
+        turb = results['turbulence']
+        if 'max_k' in turb:
+            plt.text(0.2, y_pos, f"Maximum Turbulence: {turb.get('max_k', 0):.4f} m²/s²", fontsize=11)
+            y_pos -= 0.025
+    
+    # Reynolds number
+    if 'reynolds_number' in results:
+        plt.text(0.2, y_pos, f"Reynolds Number: {results.get('reynolds_number', 0):.2f}", fontsize=11)
+        y_pos -= 0.025
+    
+    # Top Issues Summary
+    if issues:
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "Critical Issues Identified:", fontsize=12, fontweight='bold', color='red')
+        y_pos -= 0.03
+        
+        # List top 5 issues
+        for i, issue in enumerate(issues[:5], 1):
+            wrapped_text = textwrap.fill(issue, width=80)
+            plt.text(0.2, y_pos, f"{i}. {wrapped_text}", fontsize=11)
+            y_pos -= 0.03
+            
+        if len(issues) > 5:
+            plt.text(0.2, y_pos, f"... and {len(issues) - 5} more issues (see detailed sections)", fontsize=11)
+            y_pos -= 0.03
+    
+    # Top Recommendations
+    if 'recommendations' in quality_assessment:
+        recommendations = quality_assessment['recommendations']
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "Key Recommendations:", fontsize=12, fontweight='bold', color='blue')
+        y_pos -= 0.03
+        
+        # List top 5 recommendations
+        for i, rec in enumerate(recommendations[:5], 1):
+            wrapped_text = textwrap.fill(rec, width=80)
+            plt.text(0.2, y_pos, f"{i}. {wrapped_text}", fontsize=11)
+            y_pos -= 0.03
+            
+        if len(recommendations) > 5:
+            plt.text(0.2, y_pos, f"... and {len(recommendations) - 5} more recommendations (see detailed sections)", fontsize=11)
+            y_pos -= 0.03
+    
+    # Next Steps Section
+    y_pos -= 0.03
+    plt.text(0.1, y_pos, "Recommended Next Steps for Operators:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if status == 'Satisfactory':
+        plt.text(0.15, y_pos, "The simulation indicates acceptable casting parameters. Proceed with production.", fontsize=11)
+    else:
+        plt.text(0.15, y_pos, "1. Review detailed analysis in subsequent sections of this report", fontsize=11)
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "2. Address the critical issues highlighted above", fontsize=11)
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "3. Adjust casting parameters according to recommendations", fontsize=11)
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "4. Run verification simulation with updated parameters", fontsize=11)
+    
+    pdf.savefig()
+    plt.close()
+
+
+def create_fill_analysis_page(pdf, results, config):
+    """Create detailed fill analysis page"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.95, "Detailed Fill Analysis", fontsize=18, ha='center', fontweight='bold')
+    
+    y_pos = 0.9
+    
+    # Fill status data
+    fill_status = results.get('fill_status', {})
+    plt.text(0.1, y_pos, "Fill Status Analysis:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if 'error' in fill_status:
+        plt.text(0.15, y_pos, f"Error: {fill_status['error']}", fontsize=12, color='red')
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "Using estimated values for analysis", fontsize=12)
+        y_pos -= 0.03
+    
+    # Fill percentage visualization
+    if 'unfilled_percentage' in fill_status:
+        unfilled = fill_status['unfilled_percentage']
+        filled = 1.0 - unfilled
+        
+        plt.text(0.15, y_pos, f"Fill Percentage: {filled*100:.2f}%", fontsize=12, fontweight='bold')
+        y_pos -= 0.03
+        
+        acceptable = config['quality_checks']['acceptable_unfilled_percentage']
+        if unfilled <= acceptable:
+            status_text = "✓ ACCEPTABLE"
+            status_color = 'green'
+        else:
+            status_text = "✗ ISSUE"
+            status_color = 'red'
+        
+        plt.text(0.15, y_pos, f"Status: {status_text} (Threshold: {acceptable*100:.2f}% max unfilled)",
+                fontsize=12, color=status_color)
+        y_pos -= 0.04
+        
+        # Add fill status visualization
+        y_pos -= 0.05
+        ax1 = plt.axes([0.15, y_pos-0.25, 0.7, 0.25])
+        labels = ['Filled', 'Unfilled']
+        sizes = [filled*100, unfilled*100]
+        colors = ['#4CAF50', '#F44336'] if unfilled <= acceptable else ['#FFC107', '#F44336']
+        
+        ax1.pie(sizes, labels=labels, autopct='%1.1f%%', colors=colors, 
+               shadow=True, startangle=90, wedgeprops={'alpha': 0.8})
+        ax1.axis('equal')
+        ax1.set_title('Fill Status Distribution', fontsize=14)
+        
+        y_pos -= 0.30
+        
+        # Additional fill information
+        if 'method' in fill_status:
+            plt.text(0.15, y_pos, f"Analysis Method: {fill_status['method']}", fontsize=11)
+            y_pos -= 0.03
+        
+        if 'uniform' in fill_status:
+            uniform_text = "Uniform filling" if fill_status['uniform'] else "Non-uniform filling"
+            plt.text(0.15, y_pos, f"Uniformity: {uniform_text}", fontsize=11)
+            y_pos -= 0.03
+        
+        # Detailed unfilled stats
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "Unfilled Volume Details:", fontsize=12, fontweight='bold')
+        y_pos -= 0.03
+        
+        # Calculate values based on available data
+        cavity_volume = results.get('cavity_volume', 0.001)  # Default to avoid division by zero
+        unfilled_volume = cavity_volume * unfilled
+        
+        plt.text(0.2, y_pos, f"Total Cavity Volume: {cavity_volume:.6f} m³", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, f"Unfilled Volume: {unfilled_volume:.6f} m³", fontsize=11)
+        y_pos -= 0.025
+        
+        # Material mass calculations
+        material_density = config['material']['density']
+        unfilled_mass = unfilled_volume * material_density
+        
+        plt.text(0.2, y_pos, f"Unfilled Mass: {unfilled_mass:.2f} kg", fontsize=11)
+        y_pos -= 0.025
+    else:
+        plt.text(0.15, y_pos, "Fill status data unavailable", fontsize=12, color='red')
+        y_pos -= 0.04
+    
+    # Implications section
+    y_pos -= 0.04
+    plt.text(0.1, y_pos, "Fill Status Implications:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if 'unfilled_percentage' in fill_status:
+        unfilled = fill_status['unfilled_percentage']
+        
+        if unfilled <= 0.01:
+            plt.text(0.15, y_pos, "✓ Complete filling achieved - good quality expected", fontsize=12, color='green')
+            y_pos -= 0.03
+        elif unfilled <= acceptable:
+            plt.text(0.15, y_pos, "⚠ Slight underfilling - may be acceptable depending on part geometry", 
+                    fontsize=12, color='orange')
+            y_pos -= 0.03
+            plt.text(0.15, y_pos, "   Inspect critical areas in actual casting", fontsize=11)
+            y_pos -= 0.03
+        else:
+            plt.text(0.15, y_pos, "✗ Significant underfilling - likely to cause defects", fontsize=12, color='red')
+            y_pos -= 0.03
+            plt.text(0.15, y_pos, "   Higher risk of shrinkage porosity", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.15, y_pos, "   Incomplete part features likely", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.15, y_pos, "   May require process parameter adjustment", fontsize=11)
+            y_pos -= 0.025
+    
+    # Recommendations based on fill status
+    y_pos -= 0.04
+    plt.text(0.1, y_pos, "Recommendations for Improving Fill:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if 'unfilled_percentage' in fill_status:
+        unfilled = fill_status['unfilled_percentage']
+        
+        if unfilled <= acceptable:
+            plt.text(0.15, y_pos, "Current fill status is acceptable", fontsize=12, color='green')
+            y_pos -= 0.03
+        else:
+            plt.text(0.15, y_pos, "1. Increase pouring temperature by 20-30°C", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.15, y_pos, "2. Increase mass flow rate to improve filling", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.15, y_pos, "3. Check and optimize gating system design", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.15, y_pos, "4. Consider preheating the mold", fontsize=11)
+            y_pos -= 0.025
+            
+            if unfilled > 0.1:
+                plt.text(0.15, y_pos, "5. Examine part design for thin sections that may impede flow", fontsize=11)
+                y_pos -= 0.025
+    
+    pdf.savefig()
+    plt.close()
+
+
+def create_temperature_analysis_page(pdf, results, config):
+    """Create detailed temperature analysis page"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.95, "Detailed Temperature Analysis", fontsize=18, ha='center', fontweight='bold')
+    
+    y_pos = 0.9
+    
+    # Temperature data
+    temp = results.get('temperature', {})
+    plt.text(0.1, y_pos, "Temperature Distribution Analysis:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if 'error' in temp:
+        plt.text(0.15, y_pos, f"Error: {temp['error']}", fontsize=12, color='red')
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "Using estimated values for analysis", fontsize=12)
+        y_pos -= 0.03
+    
+    if 'min' in temp and 'max' in temp:
+        plt.text(0.15, y_pos, f"Temperature Range: {temp['min']:.2f}°C to {temp['max']:.2f}°C", fontsize=12, fontweight='bold')
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, f"Average Temperature: {temp.get('avg', 0):.2f}°C", fontsize=12)
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, f"Temperature Gradient: {temp.get('range', 0):.2f}°C", fontsize=12)
+        y_pos -= 0.03
+        
+        # Check if minimum temperature is below critical threshold
+        min_acceptable = config['quality_checks']['min_front_temperature']
+        if temp['min'] < min_acceptable:
+            status_text = "✗ ISSUE"
+            status_color = 'red'
+            plt.text(0.15, y_pos, f"Minimum Temperature Status: {status_text} (Threshold: {min_acceptable}°C)",
+                    fontsize=12, color=status_color)
+        else:
+            status_text = "✓ ACCEPTABLE"
+            status_color = 'green'
+            plt.text(0.15, y_pos, f"Minimum Temperature Status: {status_text} (Threshold: {min_acceptable}°C)",
+                    fontsize=12, color=status_color)
+        y_pos -= 0.03
+        
+        # Add temperature gradient check
+        max_gradient = config['quality_checks'].get('max_temperature_gradient', 100)
+        temp_range = temp.get('range', 0)
+        if temp_range <= max_gradient:
+            status_text = "✓ ACCEPTABLE"
+            status_color = 'green'
+        else:
+            status_text = "✗ ISSUE"
+            status_color = 'red'
+        
+        plt.text(0.15, y_pos, f"Temperature Gradient Status: {status_text} (Δ{temp_range:.2f}°C, Threshold: {max_gradient}°C)",
+                fontsize=12, color=status_color)
+        y_pos -= 0.03
+        
+        # Temperature groups information
+        if 'groups' in temp:
+            plt.text(0.15, y_pos, f"Temperature Regions: {temp['groups']} distinct temperature zones detected", 
+                    fontsize=12, fontweight='bold')
+            y_pos -= 0.03
+            
+            if 'group_ranges' in temp:
+                for i, (min_t, max_t) in enumerate(temp['group_ranges']):
+                    plt.text(0.2, y_pos, f"Zone {i+1}: {min_t:.2f}°C to {max_t:.2f}°C (Δ{max_t-min_t:.2f}°C)", fontsize=11)
+                    y_pos -= 0.025
+                
+                if temp['groups'] > 1:
+                    plt.text(0.2, y_pos, "Note: Multiple temperature zones suggest distinct metal and air regions", fontsize=11)
+                    y_pos -= 0.025
+        
+        # Temperature visualization
+        y_pos -= 0.04
+        
+        # Adjust positioning for the plots
+        plt_height = 0.20
+        plt_width = 0.7
+        plt_left = 0.15
+        
+        # Temperature distribution as bar chart
+        ax1 = plt.axes([plt_left, y_pos-plt_height, plt_width, plt_height])
+        
+        # If we have groups data, visualize it
+        if 'group_ranges' in temp:
+            # Create group labels and colors
+            group_labels = [f"Zone {i+1}" for i in range(len(temp['group_ranges']))]
+            
+            # Get min/max/avg for each group
+            group_data = []
+            for min_t, max_t in temp['group_ranges']:
+                avg_t = (min_t + max_t) / 2
+                group_data.append((min_t, avg_t, max_t))
+            
+            # Create a grouped bar chart
+            x = np.arange(len(group_labels))
+            width = 0.25
+            
+            # Plot min, avg, max for each group
+            ax1.bar(x - width, [d[0] for d in group_data], width, label='Min', color='blue', alpha=0.7)
+            ax1.bar(x, [d[1] for d in group_data], width, label='Avg', color='green', alpha=0.7)
+            ax1.bar(x + width, [d[2] for d in group_data], width, label='Max', color='red', alpha=0.7)
+            
+            ax1.set_ylabel('Temperature (°C)')
+            ax1.set_title('Temperature Distribution by Zone')
+            ax1.set_xticks(x)
+            ax1.set_xticklabels(group_labels)
+            ax1.legend()
+            
+            # Add horizontal line for critical temperature
+            ax1.axhline(y=min_acceptable, color='red', linestyle='--', 
+                    label=f'Critical Temp ({min_acceptable}°C)')
+            
+            # Add horizontal line for liquidus temperature if available
+            liquidus = config['material'].get('liquidus_temperature')
+            if liquidus:
+                ax1.axhline(y=liquidus, color='orange', linestyle='--', 
+                        label=f'Liquidus Temp ({liquidus}°C)')
+            
+            # Add horizontal line for solidus temperature if available
+            solidus = config['material'].get('solidus_temperature')
+            if solidus:
+                ax1.axhline(y=solidus, color='purple', linestyle='--', 
+                        label=f'Solidus Temp ({solidus}°C)')
+            
+            ax1.legend(loc='best', fontsize=8)
+        else:
+            # Just show min, avg, max temperature
+            labels = ['Min', 'Avg', 'Max']
+            temps = [temp.get('min', 0), temp.get('avg', 0), temp.get('max', 0)]
+            ax1.bar(labels, temps, color=['blue', 'green', 'red'])
+            ax1.set_ylabel('Temperature (°C)')
+            ax1.set_title('Temperature Distribution')
+            
+            # Add horizontal line for critical temperature
+            ax1.axhline(y=min_acceptable, color='red', linestyle='--', 
+                    label=f'Critical Temp ({min_acceptable}°C)')
+            
+            # Add horizontal line for liquidus temperature if available
+            liquidus = config['material'].get('liquidus_temperature')
+            if liquidus:
+                ax1.axhline(y=liquidus, color='orange', linestyle='--', 
+                        label=f'Liquidus Temp ({liquidus}°C)')
+            
+            ax1.legend(loc='best', fontsize=8)
+        
+        y_pos -= plt_height + 0.05
+        
+        # Second plot: Temperature Gradient Comparison
+        ax2 = plt.axes([plt_left, y_pos-plt_height, plt_width, plt_height])
+        
+        # Temperature range
+        temp_range = temp.get('range', 0)
+        
+        # Create a visual comparison
+        ax2.bar(['Actual', 'Threshold'], [temp_range, max_gradient], 
+            color=['red' if temp_range > max_gradient else 'green', 'blue'])
+        ax2.set_ylabel('Temperature Gradient (°C)')
+        ax2.set_title('Temperature Gradient vs Threshold')
+        
+        # Add values on top of the bars
+        for i, v in enumerate([temp_range, max_gradient]):
+            ax2.text(i, v + 5, f"{v:.1f}°C", ha='center')
+        
+        y_pos -= plt_height + 0.05
+    else:
+        plt.text(0.15, y_pos, "Temperature data incomplete or unavailable", fontsize=12, color='red')
+        y_pos -= 0.04
+    
+    # Temperature implications section
+    y_pos -= 0.02
+    plt.text(0.1, y_pos, "Temperature Analysis Implications:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if 'min' in temp and 'max' in temp:
+        min_temp = temp['min']
+        temp_range = temp.get('range', 0)
+        
+        # Low temperature implications
+        if min_temp < min_acceptable:
+            plt.text(0.15, y_pos, "✗ Low temperature regions detected:", fontsize=12, color='red')
+            y_pos -= 0.03
+            plt.text(0.2, y_pos, "• Increased risk of cold shuts and incomplete filling", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• May cause premature solidification in thin sections", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Can lead to poor mechanical properties in affected areas", fontsize=11)
+            y_pos -= 0.025
+        else:
+            plt.text(0.15, y_pos, "✓ Minimum temperature is above critical threshold", fontsize=12, color='green')
+            y_pos -= 0.03
+        
+        # Temperature gradient implications
+            y_pos -= 0.01
+            if temp_range > max_gradient:
+                plt.text(0.15, y_pos, "✗ Excessive temperature gradient detected:", fontsize=12, color='red')
+                y_pos -= 0.03
+                plt.text(0.2, y_pos, "• Risk of thermal stress and distortion", fontsize=11)
+                y_pos -= 0.025
+                plt.text(0.2, y_pos, "• Uneven solidification likely to cause internal stresses", fontsize=11)
+                y_pos -= 0.025
+                plt.text(0.2, y_pos, "• May lead to defects such as cracking and porosity", fontsize=11)
+                y_pos -= 0.025
+            else:
+                plt.text(0.15, y_pos, "✓ Temperature gradient is within acceptable limits", fontsize=12, color='green')
+                y_pos -= 0.03
+    
+    pdf.savefig()
+    plt.close()
+
+
+def create_flow_analysis_page(pdf, results, config):
+    """Create detailed flow analysis page"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.95, "Detailed Flow Analysis", fontsize=18, ha='center', fontweight='bold')
+    
+    # Velocity data
+    y_pos = 0.9
+    plt.text(0.1, y_pos, "Flow Velocity Analysis:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    vel = results.get('velocity', {})
+    if vel:
+        # Check for error
+        if 'error' in vel:
+            plt.text(0.15, y_pos, f"Error: {vel['error']}", fontsize=12, color='red')
+            y_pos -= 0.03
+            plt.text(0.15, y_pos, "Using estimated values for analysis", fontsize=12)
+            y_pos -= 0.03
+            
+        # If estimated, indicate this
+        if vel.get('estimated', False):
+            plt.text(0.15, y_pos, "Note: Velocity values are estimated based on available data", 
+                    fontsize=11, color='orange')
+            y_pos -= 0.03
+        
+        # Display velocity statistics
+        if 'average' in vel:
+            plt.text(0.15, y_pos, f"Average Velocity: {vel['average']:.2f} m/s", fontsize=12, fontweight='bold')
+            y_pos -= 0.03
+            
+            # Check against minimum threshold
+            min_acceptable = config['casting'].get('min_velocity', 0.5)
+            if vel['average'] < min_acceptable:
+                plt.text(0.15, y_pos, f"Status: ✗ ISSUE (Threshold: {min_acceptable} m/s minimum)",
+                        fontsize=12, color='red')
+            else:
+                plt.text(0.15, y_pos, f"Status: ✓ ACCEPTABLE (Threshold: {min_acceptable} m/s minimum)",
+                        fontsize=12, color='green')
+            y_pos -= 0.03
+            
+        if 'min' in vel and 'max' in vel:
+            plt.text(0.15, y_pos, f"Velocity Range: {vel['min']:.2f} m/s to {vel['max']:.2f} m/s", fontsize=12)
+            y_pos -= 0.03
+            
+            # Check maximum velocity against threshold
+            max_acceptable = config['casting'].get('max_velocity', 1.5)
+            if vel['max'] > max_acceptable:
+                plt.text(0.15, y_pos, f"Maximum Velocity Status: ✗ ISSUE (Threshold: {max_acceptable} m/s maximum)",
+                        fontsize=12, color='red')
+            else:
+                plt.text(0.15, y_pos, f"Maximum Velocity Status: ✓ ACCEPTABLE (Threshold: {max_acceptable} m/s maximum)",
+                        fontsize=12, color='green')
+            y_pos -= 0.03
+            
+            # Check velocity variation
+            vel_range = vel['max'] - vel['min']
+            vel_avg = vel['average']
+            
+            if vel_range > 2 * vel_avg:
+                plt.text(0.15, y_pos, f"Velocity Variation: ✗ HIGH (Range: {vel_range:.2f} m/s, Avg: {vel_avg:.2f} m/s)",
+                        fontsize=12, color='red')
+            else:
+                plt.text(0.15, y_pos, f"Velocity Variation: ✓ NORMAL (Range: {vel_range:.2f} m/s, Avg: {vel_avg:.2f} m/s)",
+                        fontsize=12, color='green')
+            y_pos -= 0.03
+        
+        # Velocity visualization
+        y_pos -= 0.04
+        
+        # Adjust positioning for the plots
+        plt_height = 0.20
+        plt_width = 0.7
+        plt_left = 0.15
+        
+        # Velocity bar chart
+        ax1 = plt.axes([plt_left, y_pos-plt_height, plt_width, plt_height])
+        
+        # Get key values with fallbacks
+        min_vel = vel.get('min', 0)
+        avg_vel = vel.get('average', 0)
+        max_vel = vel.get('max', 0)
+        
+        # Get thresholds
+        min_acceptable = config['casting'].get('min_velocity', 0.5)
+        max_acceptable = config['casting'].get('max_velocity', 1.5)
+        
+        # Create a visual comparison
+        ax1.bar(['Min', 'Avg', 'Max'], [min_vel, avg_vel, max_vel],
+            color=['blue', 'green', 'red' if max_vel > max_acceptable else 'green'])
+        
+        # Add threshold lines
+        ax1.axhline(y=min_acceptable, color='blue', linestyle='--', label=f'Min Threshold ({min_acceptable} m/s)')
+        ax1.axhline(y=max_acceptable, color='red', linestyle='--', label=f'Max Threshold ({max_acceptable} m/s)')
+        
+        ax1.set_ylabel('Velocity (m/s)')
+        ax1.set_title('Flow Velocity Analysis')
+        ax1.legend()
+        
+        # Add values on top of the bars
+        for i, v in enumerate([min_vel, avg_vel, max_vel]):
+            ax1.text(i, v + 0.1, f"{v:.2f} m/s", ha='center')
+        
+        y_pos -= plt_height + 0.05
+        
+        # Second plot: Velocity Distribution
+        if 'sample_values' in vel:
+            ax2 = plt.axes([plt_left, y_pos-plt_height, plt_width, plt_height])
+            
+            # Create histogram of velocity values
+            sample_values = vel['sample_values']
+            ax2.hist(sample_values, bins=10, color='green', alpha=0.7)
+            ax2.set_xlabel('Velocity (m/s)')
+            ax2.set_ylabel('Frequency')
+            ax2.set_title('Velocity Distribution')
+            
+            # Add threshold lines
+            ax2.axvline(x=min_acceptable, color='blue', linestyle='--', label=f'Min ({min_acceptable} m/s)')
+            ax2.axvline(x=max_acceptable, color='red', linestyle='--', label=f'Max ({max_acceptable} m/s)')
+            ax2.legend()
+            
+            y_pos -= plt_height + 0.05
+    else:
+        plt.text(0.15, y_pos, "Velocity data unavailable", fontsize=12, color='red')
+        y_pos -= 0.04
+    
+    # Reynolds number analysis
+    y_pos -= 0.02
+    plt.text(0.1, y_pos, "Reynolds Number Analysis:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    re = results.get('reynolds_number', 0)
+    
+    if re > 0:
+        plt.text(0.15, y_pos, f"Reynolds Number: {re:.2f}", fontsize=12, fontweight='bold')
+        y_pos -= 0.03
+        
+        # Classify flow regime
+        if re < 500:
+            regime = "Laminar"
+            color = 'green'
+        elif re < 2000:
+            regime = "Transitional"
+            color = 'orange'
+        elif re < 10000:
+            regime = "Turbulent"
+            color = 'red'
+        else:
+            regime = "Highly Turbulent"
+            color = 'darkred'
+        
+        plt.text(0.15, y_pos, f"Flow Regime: {regime}", fontsize=12, color=color)
+        y_pos -= 0.03
+        
+        # Add implications based on flow regime
+        plt.text(0.15, y_pos, "Flow Implications:", fontsize=12, fontweight='bold')
+        y_pos -= 0.03
+        
+        if re < 500:
+            plt.text(0.2, y_pos, "• Smooth, predictable flow pattern", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Lower risk of mold erosion", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Reduced gas entrapment", fontsize=11)
+            y_pos -= 0.025
+        elif re < 2000:
+            plt.text(0.2, y_pos, "• Mixed flow characteristics", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Some turbulence may be present in certain regions", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Moderate risk of defects", fontsize=11)
+            y_pos -= 0.025
+        elif re < 10000:
+            plt.text(0.2, y_pos, "• Turbulent flow with unpredictable patterns", fontsize=11, color='red')
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Higher risk of mold erosion", fontsize=11, color='red')
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Increased gas entrapment and oxide formation", fontsize=11, color='red')
+            y_pos -= 0.025
+        else:
+            plt.text(0.2, y_pos, "• Highly turbulent flow - significant unpredictability", fontsize=11, color='red')
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• High risk of mold erosion and wash", fontsize=11, color='red')
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Severe gas entrapment and oxide inclusion likely", fontsize=11, color='red')
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Strong possibility of casting defects", fontsize=11, color='red')
+            y_pos -= 0.025
+        
+        # Visualize Reynolds number
+        y_pos -= 0.04
+        
+        # Add a visual showing where the Re number falls on a scale
+        ax3 = plt.axes([plt_left, y_pos-0.1, plt_width, 0.1])
+        
+        # Create a horizontal scale
+        re_scale = np.array([0, 500, 2000, 10000, 50000])
+        ax3.set_xlim(0, 50000)
+        ax3.set_xticks(re_scale)
+        ax3.set_xticklabels(['0', '500\nLaminar', '2,000\nTransitional', '10,000\nTurbulent', '50,000\nHighly Turbulent'])
+        
+        # Create colored regions
+        ax3.axvspan(0, 500, facecolor='green', alpha=0.3)
+        ax3.axvspan(500, 2000, facecolor='yellow', alpha=0.3)
+        ax3.axvspan(2000, 10000, facecolor='orange', alpha=0.3)
+        ax3.axvspan(10000, 50000, facecolor='red', alpha=0.3)
+        
+        # Add marker for current Re
+        ax3.plot(re, 0.5, 'ro', markersize=10)
+        ax3.text(re, 0.7, f'Re = {re:.0f}', ha='center', fontweight='bold')
+        
+        # Remove y-axis
+        ax3.set_yticks([])
+        ax3.set_title('Reynolds Number Scale', fontsize=12)
+        
+        y_pos -= 0.15
+    else:
+        plt.text(0.15, y_pos, "Reynolds number data unavailable", fontsize=12, color='red')
+        y_pos -= 0.04
+    
+    # Flow recommendations
+    y_pos -= 0.04
+    plt.text(0.1, y_pos, "Flow Improvement Recommendations:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if re > 2000 or (vel and 'max' in vel and vel['max'] > config['casting'].get('max_velocity', 1.5)):
+        plt.text(0.15, y_pos, "Recommendations to Reduce Flow Velocity/Turbulence:", fontsize=12)
+        y_pos -= 0.03
+        plt.text(0.2, y_pos, "1. Optimize gating system with smoother transitions", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "2. Reduce mass flow rate to decrease velocity", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "3. Consider adding filters to reduce turbulence", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "4. Add flow restrictors in critical areas", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "5. Redesign runner system to promote more laminar flow", fontsize=11)
+        y_pos -= 0.025
+    elif vel and 'average' in vel and vel['average'] < config['casting'].get('min_velocity', 0.5):
+        plt.text(0.15, y_pos, "Recommendations to Increase Flow Velocity:", fontsize=12)
+        y_pos -= 0.03
+        plt.text(0.2, y_pos, "1. Increase mass flow rate", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "2. Optimize gating system to reduce flow restrictions", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "3. Increase pouring temperature to improve fluidity", fontsize=11)
+        y_pos -= 0.025
+    else:
+        plt.text(0.15, y_pos, "Current flow parameters are acceptable", fontsize=12, color='green')
+        y_pos -= 0.03
+    
+    pdf.savefig()
+    plt.close()
+
+
+def create_turbulence_analysis_page(pdf, results, config):
+    """Create detailed turbulence analysis page"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.95, "Detailed Turbulence Analysis", fontsize=18, ha='center', fontweight='bold')
+    
+    y_pos = 0.9
+    
+    # Turbulence data
+    plt.text(0.1, y_pos, "Turbulent Kinetic Energy Analysis:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    turb = results.get('turbulence', {})
+    if turb:
+        # Check for error
+        if 'error' in turb:
+            plt.text(0.15, y_pos, f"Error: {turb['error']}", fontsize=12, color='red')
+            y_pos -= 0.03
+            plt.text(0.15, y_pos, "Using estimated values for analysis", fontsize=12)
+            y_pos -= 0.03
+            
+        # If estimated, indicate this
+        if turb.get('estimated', False):
+            plt.text(0.15, y_pos, "Note: Turbulence values are estimated based on available data", 
+                    fontsize=11, color='orange')
+            y_pos -= 0.03
+        
+        # Display turbulence data
+        if 'max_k' in turb:
+            plt.text(0.15, y_pos, f"Maximum Turbulent Kinetic Energy: {turb['max_k']:.4f} m²/s²", 
+                    fontsize=12, fontweight='bold')
+            y_pos -= 0.03
+            
+            # Check against threshold
+            max_k_acceptable = config['quality_checks']['max_turbulent_kinetic_energy']
+            if turb['max_k'] > max_k_acceptable:
+                plt.text(0.15, y_pos, f"Status: ✗ ISSUE (Threshold: {max_k_acceptable} m²/s² maximum)",
+                        fontsize=12, color='red')
+            else:
+                plt.text(0.15, y_pos, f"Status: ✓ ACCEPTABLE (Threshold: {max_k_acceptable} m²/s² maximum)",
+                        fontsize=12, color='green')
+            y_pos -= 0.03
+        
+        if 'min_k' in turb:
+            plt.text(0.15, y_pos, f"Minimum Turbulent KE: {turb['min_k']:.4f} m²/s²", fontsize=12)
+            y_pos -= 0.03
+            
+        if 'avg_k' in turb:
+            plt.text(0.15, y_pos, f"Average Turbulent KE: {turb['avg_k']:.4f} m²/s²", fontsize=12)
+            y_pos -= 0.03
+        
+        # Turbulence visualization
+        y_pos -= 0.04
+        
+        # Adjust positioning for the plots
+        plt_height = 0.20
+        plt_width = 0.7
+        plt_left = 0.15
+        
+        # Turbulence bar chart
+        ax1 = plt.axes([plt_left, y_pos-plt_height, plt_width, plt_height])
+        
+        # Get key values with fallbacks
+        min_k = turb.get('min_k', 0)
+        avg_k = turb.get('avg_k', turb.get('max_k', 0)/2)  # Fallback if not available
+        max_k = turb.get('max_k', 0)
+        
+        # Create a visual comparison
+        ax1.bar(['Minimum', 'Average', 'Maximum'], [min_k, avg_k, max_k],
+            color=['blue', 'green', 'red' if max_k > max_k_acceptable else 'green'])
+        
+        # Add threshold line
+        ax1.axhline(y=max_k_acceptable, color='red', linestyle='--', 
+                label=f'Max Threshold ({max_k_acceptable} m²/s²)')
+        
+        ax1.set_ylabel('Turbulent Kinetic Energy (m²/s²)')
+        ax1.set_title('Turbulence Analysis')
+        ax1.legend()
+        
+        # Add values on top of the bars
+        for i, v in enumerate([min_k, avg_k, max_k]):
+            ax1.text(i, v + 0.01, f"{v:.4f}", ha='center')
+        
+        y_pos -= plt_height + 0.05
+        
+        # Add threshold comparison
+        ax2 = plt.axes([plt_left, y_pos-plt_height, plt_width, plt_height])
+        
+        # Create a visual comparison
+        ax2.bar(['Actual', 'Threshold'], [max_k, max_k_acceptable], 
+            color=['red' if max_k > max_k_acceptable else 'green', 'blue'])
+        ax2.set_ylabel('Turbulent KE (m²/s²)')
+        ax2.set_title('Maximum Turbulence vs Threshold')
+        
+        # Add values on top of the bars
+        for i, v in enumerate([max_k, max_k_acceptable]):
+            ax2.text(i, v + 0.01, f"{v:.4f}", ha='center')
+        
+        y_pos -= plt_height + 0.05
+    else:
+        plt.text(0.15, y_pos, "Turbulence data unavailable", fontsize=12, color='red')
+        y_pos -= 0.04
+    
+    # Turbulence implications
+    y_pos -= 0.02
+    plt.text(0.1, y_pos, "Turbulence Implications:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if turb and 'max_k' in turb:
+        max_k = turb['max_k']
+        max_k_acceptable = config['quality_checks']['max_turbulent_kinetic_energy']
+        
+        if max_k > max_k_acceptable:
+            plt.text(0.15, y_pos, "✗ Excessive turbulence detected - high risk of defects:", fontsize=12, color='red')
+            y_pos -= 0.03
+            plt.text(0.2, y_pos, "• Increased gas entrapment leading to porosity", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Higher probability of oxide inclusions", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Risk of mold erosion in high turbulence areas", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Unstable metal front causing fill issues", fontsize=11)
+            y_pos -= 0.025
+        else:
+            plt.text(0.15, y_pos, "✓ Turbulence levels are within acceptable limits", fontsize=12, color='green')
+            y_pos -= 0.03
+            plt.text(0.2, y_pos, "• Lower risk of gas entrapment and oxide formation", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Minimal mold erosion expected", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• More stable metal front during filling", fontsize=11)
+            y_pos -= 0.025
+    else:
+        # Estimate from Reynolds number if available
+        re = results.get('reynolds_number', 0)
+        if re > 10000:
+            plt.text(0.15, y_pos, "✗ Based on Reynolds number, high turbulence is likely", fontsize=12, color='red')
+            y_pos -= 0.03
+            plt.text(0.2, y_pos, "• High probability of gas entrapment and porosity", fontsize=11)
+            y_pos -= 0.025
+            plt.text(0.2, y_pos, "• Risk of oxide inclusions and mold erosion", fontsize=11)
+            y_pos -= 0.025
+        elif re > 2000:
+            plt.text(0.15, y_pos, "⚠ Based on Reynolds number, moderate turbulence is likely", fontsize=12, color='orange')
+            y_pos -= 0.03
+            plt.text(0.2, y_pos, "• Some risk of gas entrapment and defects", fontsize=11)
+            y_pos -= 0.025
+        else:
+            plt.text(0.15, y_pos, "✓ Based on Reynolds number, flow is likely laminar with minimal turbulence", 
+                    fontsize=12, color='green')
+            y_pos -= 0.03
+    
+    # Recommendations
+    y_pos -= 0.04
+    plt.text(0.1, y_pos, "Recommendations to Reduce Turbulence:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if (turb and 'max_k' in turb and turb['max_k'] > max_k_acceptable) or re > 2000:
+        plt.text(0.15, y_pos, "1. Redesign the gating system with smoother transitions", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.15, y_pos, "2. Add ceramic filters to laminarize flow", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.15, y_pos, "3. Implement stepped runners to control flow speed", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.15, y_pos, "4. Reduce overall mass flow rate", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.15, y_pos, "5. Optimize ingate design to reduce jetting", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.15, y_pos, "6. Consider bottom-filling approaches where feasible", fontsize=11)
+        y_pos -= 0.025
+    else:
+        plt.text(0.15, y_pos, "Current turbulence levels are acceptable", fontsize=12, color='green')
+        y_pos -= 0.03
+    
+    pdf.savefig()
+    plt.close()
+
+
+def create_issues_page(pdf, issues, recommendations):
+    """Create issues and recommendations page"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.95, "Comprehensive Quality Assessment", fontsize=18, ha='center', fontweight='bold')
+    
+    y_pos = 0.9
+    
+    if issues:
+        plt.text(0.1, y_pos, f"Issues Detected ({len(issues)}):", fontsize=14, fontweight='bold', color='red')
+        y_pos -= 0.04
+        
+        # Group issues by category
+        fill_issues = [i for i in issues if 'fill' in i.lower() or 'unfilled' in i.lower()]
+        temp_issues = [i for i in issues if 'temperature' in i.lower() or 'thermal' in i.lower()]
+        flow_issues = [i for i in issues if 'velocity' in i.lower() or 'flow' in i.lower()]
+        turb_issues = [i for i in issues if 'turbulence' in i.lower() or 'turbulent' in i.lower()]
+        other_issues = [i for i in issues if i not in fill_issues + temp_issues + flow_issues + turb_issues]
+        
+        # Helper function to display group of issues
+        def display_issue_group(title, group_issues, start_pos, icon="✗"):
+            pos = start_pos
+            if group_issues:
+                plt.text(0.15, pos, f"{title} ({len(group_issues)}):", fontsize=12, fontweight='bold')
+                pos -= 0.03
+                for i, issue in enumerate(group_issues, 1):
+                    wrapped_text = textwrap.fill(issue, width=80)
+                    plt.text(0.2, pos, f"{icon} {wrapped_text}", fontsize=11, color='red')
+                    pos -= max(0.025, 0.02 * wrapped_text.count('\n'))
+                pos -= 0.02
+            return pos
+        
+        # Display each group
+        y_pos = display_issue_group("Fill Issues", fill_issues, y_pos)
+        y_pos = display_issue_group("Temperature Issues", temp_issues, y_pos)
+        y_pos = display_issue_group("Flow Issues", flow_issues, y_pos)
+        y_pos = display_issue_group("Turbulence Issues", turb_issues, y_pos)
+        y_pos = display_issue_group("Other Issues", other_issues, y_pos)
+        
+        # Recommendations section
+        y_pos -= 0.04
+        plt.text(0.1, y_pos, f"Recommendations ({len(recommendations)}):", fontsize=14, fontweight='bold', color='blue')
+        y_pos -= 0.04
+        
+        # Group recommendations by category
+        fill_recs = [r for r in recommendations if 'fill' in r.lower() or 'pour' in r.lower()]
+        temp_recs = [r for r in recommendations if 'temperature' in r.lower() or 'thermal' in r.lower() or 'preheat' in r.lower()]
+        flow_recs = [r for r in recommendations if 'velocity' in r.lower() or 'flow' in r.lower()]
+        turb_recs = [r for r in recommendations if 'turbulence' in r.lower() or 'turbulent' in r.lower()]
+        gate_recs = [r for r in recommendations if 'gating' in r.lower() or 'runner' in r.lower() or 'gate' in r.lower()]
+        other_recs = [r for r in recommendations if r not in fill_recs + temp_recs + flow_recs + turb_recs + gate_recs]
+        
+        # Display recommendation groups
+        def display_rec_group(title, group_recs, start_pos, icon="•"):
+            pos = start_pos
+            if group_recs:
+                plt.text(0.15, pos, f"{title} ({len(group_recs)}):", fontsize=12, fontweight='bold')
+                pos -= 0.03
+                for i, rec in enumerate(group_recs, 1):
+                    wrapped_text = textwrap.fill(rec, width=80)
+                    plt.text(0.2, pos, f"{icon} {wrapped_text}", fontsize=11, color='blue')
+                    pos -= max(0.025, 0.02 * wrapped_text.count('\n'))
+                pos -= 0.02
+            return pos
+        
+        # Display each group
+        y_pos = display_rec_group("Fill Improvements", fill_recs, y_pos)
+        y_pos = display_rec_group("Temperature Adjustments", temp_recs, y_pos)
+        y_pos = display_rec_group("Flow Control", flow_recs, y_pos)
+        y_pos = display_rec_group("Turbulence Reduction", turb_recs, y_pos)
+        y_pos = display_rec_group("Gating System Redesign", gate_recs, y_pos)
+        y_pos = display_rec_group("Additional Recommendations", other_recs, y_pos)
+    else:
+        plt.text(0.1, y_pos, "No Quality Issues Detected", fontsize=14, fontweight='bold', color='green')
+        y_pos -= 0.04
+        plt.text(0.15, y_pos, "All simulation parameters are within acceptable ranges.", fontsize=12)
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "The casting is expected to have good quality with minimal defects.", fontsize=12)
+        y_pos -= 0.03
+    
+    pdf.savefig()
+    plt.close()
+
+
+def create_simulation_details_page(pdf, results, config):
+    """Create simulation parameters details page"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.95, "Simulation Parameters & Details", fontsize=18, ha='center', fontweight='bold')
+    
+    y_pos = 0.9
+    
+    # Material Properties
+    plt.text(0.1, y_pos, "Material Properties:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    material = config.get('material', {})
+    plt.text(0.15, y_pos, f"Material: {material.get('name', 'N/A')}", fontsize=12)
+    y_pos -= 0.025
+    plt.text(0.15, y_pos, f"Density: {material.get('density', 'N/A')} kg/m³", fontsize=12)
+    y_pos -= 0.025
+    
+    if 'specific_heat' in material:
+        plt.text(0.15, y_pos, f"Specific Heat: {material['specific_heat']} J/kg·K", fontsize=12)
+        y_pos -= 0.025
+    
+    if 'thermal_conductivity' in material:
+        plt.text(0.15, y_pos, f"Thermal Conductivity: {material['thermal_conductivity']} W/m·K", fontsize=12)
+        y_pos -= 0.025
+    
+    if 'liquidus_temperature' in material:
+        plt.text(0.15, y_pos, f"Liquidus Temperature: {material['liquidus_temperature']} °C", fontsize=12)
+        y_pos -= 0.025
+    
+    if 'solidus_temperature' in material:
+        plt.text(0.15, y_pos, f"Solidus Temperature: {material['solidus_temperature']} °C", fontsize=12)
+        y_pos -= 0.025
+    
+    # Process Parameters
+    y_pos -= 0.03
+    plt.text(0.1, y_pos, "Process Parameters:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    casting = config.get('casting', {})
+    plt.text(0.15, y_pos, f"Pouring Temperature: {casting.get('pouring_temperature', 'N/A')} °C", fontsize=12)
+    y_pos -= 0.025
+    plt.text(0.15, y_pos, f"Target Mass Flow Rate: {casting.get('target_mass_flowrate', 'N/A')} kg/s", fontsize=12)
+    y_pos -= 0.025
+    plt.text(0.15, y_pos, f"Calculated Fill Time: {results.get('fill_time', 'N/A'):.2f} s", fontsize=12)
+    y_pos -= 0.025
+    
+    cavity_volume = results.get('cavity_volume', 'N/A')
+    if cavity_volume != 'N/A':
+        plt.text(0.15, y_pos, f"Cavity Volume: {cavity_volume:.6f} m³", fontsize=12)
+        y_pos -= 0.025
+    
+    metal_mass = results.get('metal_mass', 'N/A')
+    if metal_mass != 'N/A':
+        plt.text(0.15, y_pos, f"Metal Mass: {metal_mass:.2f} kg", fontsize=12)
+        y_pos -= 0.025
+    
+    # Quality Control Parameters
+    y_pos -= 0.03
+    plt.text(0.1, y_pos, "Quality Control Parameters:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    quality_checks = config.get('quality_checks', {})
+    
+    plt.text(0.15, y_pos, f"Acceptable Unfilled Percentage: {quality_checks.get('acceptable_unfilled_percentage', 'N/A')*100:.2f}%", fontsize=12)
+    y_pos -= 0.025
+    plt.text(0.15, y_pos, f"Minimum Front Temperature: {quality_checks.get('min_front_temperature', 'N/A')} °C", fontsize=12)
+    y_pos -= 0.025
+    plt.text(0.15, y_pos, f"Maximum Temperature Gradient: {quality_checks.get('max_temperature_gradient', 'N/A')} °C", fontsize=12)
+    y_pos -= 0.025
+    plt.text(0.15, y_pos, f"Maximum Turbulent K.E.: {quality_checks.get('max_turbulent_kinetic_energy', 'N/A')} m²/s²", fontsize=12)
+    y_pos -= 0.025
+    
+    # Flow Regime Thresholds
+    y_pos -= 0.03
+    plt.text(0.1, y_pos, "Flow Regime Thresholds:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    plt.text(0.15, y_pos, f"Minimum Velocity: {casting.get('min_velocity', 'N/A')} m/s", fontsize=12)
+    y_pos -= 0.025
+    plt.text(0.15, y_pos, f"Maximum Velocity: {casting.get('max_velocity', 'N/A')} m/s", fontsize=12)
+    y_pos -= 0.025
+    plt.text(0.15, y_pos, "Reynolds Number Thresholds:", fontsize=12)
+    y_pos -= 0.025
+    plt.text(0.2, y_pos, "• < 500: Laminar Flow", fontsize=11)
+    y_pos -= 0.02
+    plt.text(0.2, y_pos, "• 500-2000: Transitional Flow", fontsize=11)
+    y_pos -= 0.02
+    plt.text(0.2, y_pos, "• 2000-10000: Turbulent Flow", fontsize=11)
+    y_pos -= 0.02
+    plt.text(0.2, y_pos, "• > 10000: Highly Turbulent Flow", fontsize=11)
+    y_pos -= 0.02
+    
+    # Simulation Technical Details
+    y_pos -= 0.03
+    plt.text(0.1, y_pos, "Analysis Details:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    # Time data
+    time_directories = results.get('time_directories', [])
+    if time_directories:
+        plt.text(0.15, y_pos, f"Number of Time Steps Analyzed: {len(time_directories)}", fontsize=12)
+        y_pos -= 0.025
+        plt.text(0.15, y_pos, f"Final Time Step: {time_directories[-1]} s", fontsize=12)
+        y_pos -= 0.025
+    
+    # Temperature data source
+    if 'temperature' in results:
+        temp = results['temperature']
+        if 'method' in temp:
+            plt.text(0.15, y_pos, f"Temperature Analysis Method: {temp['method']}", fontsize=12)
+            y_pos -= 0.025
+    
+    # Fill status data source
+    if 'fill_status' in results:
+        fill = results['fill_status']
+        if 'method' in fill:
+            plt.text(0.15, y_pos, f"Fill Analysis Method: {fill['method']}", fontsize=12)
+            y_pos -= 0.025
+    
+    # Velocity data source
+    if 'velocity' in results:
+        vel = results['velocity']
+        if 'extraction_method' in vel:
+            plt.text(0.15, y_pos, f"Velocity Analysis Method: {vel['extraction_method']}", fontsize=12)
+            y_pos -= 0.025
+    
+    pdf.savefig()
+    plt.close()
+
+
+def create_operator_recommendations(pdf, results, config):
+    """Create operator-focused recommendations page"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.95, "Operator Guidelines", fontsize=18, ha='center', fontweight='bold')
+    
+    y_pos = 0.9
+    plt.text(0.5, y_pos, "Key Actions for Optimal Casting Quality", fontsize=14, ha='center')
+    y_pos -= 0.05
+    
+    # Get quality assessment results
+    quality_assessment = results.get('quality_assessment', {})
+    status = quality_assessment.get('overall_status', 'Unknown')
+    issues = quality_assessment.get('issues', [])
+    recommendations = quality_assessment.get('recommendations', [])
+    
+    # Process parameters section
+    plt.text(0.1, y_pos, "1. Recommended Process Parameters:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    # Current vs recommended parameters table
+    current_pouring_temp = config['casting'].get('pouring_temperature', 0)
+    current_flow_rate = config['casting'].get('target_mass_flowrate', 0)
+    
+    # Determine recommended values based on analysis
+    recommended_pouring_temp = current_pouring_temp
+    recommended_flow_rate = current_flow_rate
+    
+    # Adjust recommendations based on issues
+    temp_issues = [i for i in issues if 'temperature' in i.lower() or 'thermal' in i.lower()]
+    flow_issues = [i for i in issues if 'velocity' in i.lower() or 'flow' in i.lower()]
+    fill_issues = [i for i in issues if 'fill' in i.lower() or 'unfilled' in i.lower()]
+    
+    # If there are temperature issues, adjust pouring temperature
+    if temp_issues and 'min' in results.get('temperature', {}):
+        temp_min = results['temperature']['min']
+        min_acceptable = config['quality_checks']['min_front_temperature']
+        if temp_min < min_acceptable:
+            temp_diff = min_acceptable - temp_min
+            recommended_pouring_temp = current_pouring_temp + max(20, temp_diff)
+    
+    # If there are flow or fill issues, adjust flow rate
+    if flow_issues or fill_issues:
+        # Check if velocity is too high
+        if 'velocity' in results and 'max' in results['velocity']:
+            max_vel = results['velocity']['max']
+            max_acceptable = config['casting'].get('max_velocity', 1.5)
+            if max_vel > max_acceptable:
+                # Reduce flow rate
+                reduction_factor = max_acceptable / max_vel
+                recommended_flow_rate = current_flow_rate * reduction_factor
+        
+        # Check if significant unfilled areas
+        if 'fill_status' in results and 'unfilled_percentage' in results['fill_status']:
+            unfilled = results['fill_status']['unfilled_percentage']
+            acceptable_unfilled = config['quality_checks']['acceptable_unfilled_percentage']
+            if unfilled > acceptable_unfilled:
+                # Increase flow rate only if velocity isn't already too high
+                if recommended_flow_rate <= current_flow_rate:
+                    increase_factor = min(1.25, 1 + unfilled)  # Increase by up to 25%
+                    recommended_flow_rate = current_flow_rate * increase_factor
+    
+    # Table header
+    table_y = y_pos
+    plt.text(0.15, table_y, "Parameter", fontsize=12, fontweight='bold')
+    plt.text(0.4, table_y, "Current Value", fontsize=12, fontweight='bold')
+    plt.text(0.65, table_y, "Recommended Value", fontsize=12, fontweight='bold')
+    table_y -= 0.03
+    
+    # Draw horizontal line
+    plt.plot([0.15, 0.85], [table_y+0.005, table_y+0.005], 'k-', linewidth=1)
+    
+    # Pouring Temperature
+    table_y -= 0.03
+    plt.text(0.15, table_y, "Pouring Temperature", fontsize=11)
+    plt.text(0.4, table_y, f"{current_pouring_temp} °C", fontsize=11)
+    color = 'red' if recommended_pouring_temp != current_pouring_temp else 'black'
+    plt.text(0.65, table_y, f"{recommended_pouring_temp:.0f} °C", fontsize=11, color=color)
+    
+    # Mass Flow Rate
+    table_y -= 0.03
+    plt.text(0.15, table_y, "Mass Flow Rate", fontsize=11)
+    plt.text(0.4, table_y, f"{current_flow_rate} kg/s", fontsize=11)
+    color = 'red' if abs(recommended_flow_rate - current_flow_rate) > 0.01 else 'black'
+    plt.text(0.65, table_y, f"{recommended_flow_rate:.2f} kg/s", fontsize=11, color=color)
+    
+    # Fill Time
+    table_y -= 0.03
+    current_fill_time = results.get('fill_time', 0)
+    recommended_fill_time = current_fill_time * (current_flow_rate / recommended_flow_rate) if recommended_flow_rate > 0 else current_fill_time
+    plt.text(0.15, table_y, "Fill Time", fontsize=11)
+    plt.text(0.4, table_y, f"{current_fill_time:.2f} s", fontsize=11)
+    color = 'red' if abs(recommended_fill_time - current_fill_time) > 0.1 else 'black'
+    plt.text(0.65, table_y, f"{recommended_fill_time:.2f} s", fontsize=11, color=color)
+    
+    # Draw bottom line
+    table_y -= 0.015
+    plt.plot([0.15, 0.85], [table_y, table_y], 'k-', linewidth=1)
+    
+    y_pos = table_y - 0.04
+    
+    # Gating System Recommendations
+    plt.text(0.1, y_pos, "2. Gating System Recommendations:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    # Filter recommendations related to gating system
+    gating_recs = [r for r in recommendations if 'gating' in r.lower() or 'gate' in r.lower() or 'runner' in r.lower()]
+    
+    if gating_recs:
+        for i, rec in enumerate(gating_recs[:5], 1):
+            wrapped_text = textwrap.fill(rec, width=80)
+            plt.text(0.15, y_pos, f"{i}. {wrapped_text}", fontsize=11)
+            y_pos -= max(0.03, 0.02 * wrapped_text.count('\n'))
+    else:
+        if status == 'Satisfactory':
+            plt.text(0.15, y_pos, "Current gating system design appears adequate", fontsize=11, color='green')
+        else:
+            plt.text(0.15, y_pos, "No specific gating recommendations available", fontsize=11)
+        y_pos -= 0.03
+    
+    # Quality Control Checks
+    y_pos -= 0.03
+    plt.text(0.1, y_pos, "3. Critical Quality Control Checks:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if fill_issues:
+        plt.text(0.15, y_pos, "✓ Carefully inspect for incomplete fill in thin sections", fontsize=11)
+        y_pos -= 0.025
+    
+    if temp_issues:
+        plt.text(0.15, y_pos, "✓ Check for cold shuts and premature solidification defects", fontsize=11)
+        y_pos -= 0.025
+    
+    if [i for i in issues if 'gradient' in i.lower()]:
+        plt.text(0.15, y_pos, "✓ Inspect for thermal stress-related defects and cracking", fontsize=11)
+        y_pos -= 0.025
+    
+    if flow_issues:
+        plt.text(0.15, y_pos, "✓ Look for defects related to excessive flow velocity", fontsize=11)
+        y_pos -= 0.025
+    
+    turb_issues = [i for i in issues if 'turbulence' in i.lower() or 'turbulent' in i.lower()]
+    if turb_issues:
+        plt.text(0.15, y_pos, "✓ Inspect for gas porosity and oxide inclusions", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.15, y_pos, "✓ Check for signs of mold erosion in high-velocity areas", fontsize=11)
+        y_pos -= 0.025
+    
+    if not issues:
+        plt.text(0.15, y_pos, "✓ Standard quality inspection procedures are sufficient", fontsize=11, color='green')
+        y_pos -= 0.025
+    
+    # Implementation Plan
+    y_pos -= 0.03
+    plt.text(0.1, y_pos, "4. Implementation Plan:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if status == 'Unsatisfactory':
+        plt.text(0.15, y_pos, "Immediate Actions:", fontsize=12, fontweight='bold')
+        y_pos -= 0.03
+        
+        plt.text(0.2, y_pos, "1. Apply recommended process parameter adjustments", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "2. Produce test castings with new parameters", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "3. Implement targeted quality control checks", fontsize=11)
+        y_pos -= 0.025
+        
+        plt.text(0.15, y_pos, "Long-term Actions:", fontsize=12, fontweight='bold')
+        y_pos -= 0.03
+        
+        plt.text(0.2, y_pos, "1. Consider gating system redesign if issues persist", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "2. Re-run simulation with updated design", fontsize=11)
+        y_pos -= 0.025
+    else:
+        plt.text(0.15, y_pos, "✓ Process parameters are acceptable - proceed with production", fontsize=11, color='green')
+        y_pos -= 0.025
+    
+    pdf.savefig()
+    plt.close()
+
+
+def create_process_assessment_page(pdf, results, config):
+    """Create process assessment page"""
+    plt.figure(figsize=(8.5, 11))
+    plt.axis('off')
+    plt.text(0.5, 0.95, "Process Capability Assessment", fontsize=18, ha='center', fontweight='bold')
+    
+    y_pos = 0.9
+    
+    # Overall process assessment based on simulation results
+    plt.text(0.1, y_pos, "Overall Process Assessment:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    # Quality Assessment
+    quality_assessment = results.get('quality_assessment', {})
+    status = quality_assessment.get('overall_status', 'Unknown')
+    issues = quality_assessment.get('issues', [])
+    
+    if status == 'Satisfactory':
+        plt.text(0.15, y_pos, "✓ Process parameters appear suitable for quality casting", 
+                fontsize=12, color='green', fontweight='bold')
+        y_pos -= 0.03
+    else:
+        plt.text(0.15, y_pos, f"✗ Process requires optimization ({len(issues)} issues detected)", 
+                fontsize=12, color='red', fontweight='bold')
+        y_pos -= 0.03
+        plt.text(0.15, y_pos, "   Follow recommendations to improve casting quality", fontsize=11)
+        y_pos -= 0.03
+    
+    # Process Summary Scorecard
+    y_pos -= 0.02
+    plt.text(0.1, y_pos, "Process Capability Scorecard:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    # Calculate scores for different aspects
+    fill_score = calculate_fill_score(results, config)
+    temperature_score = calculate_temperature_score(results, config)
+    flow_score = calculate_flow_score(results, config)
+    turbulence_score = calculate_turbulence_score(results, config)
+    overall_score = (fill_score + temperature_score + flow_score + turbulence_score) / 4
+    
+    # Create scorecard table
+    table_y = y_pos
+    plt.text(0.15, table_y, "Process Aspect", fontsize=12, fontweight='bold')
+    plt.text(0.5, table_y, "Score (0-10)", fontsize=12, fontweight='bold')
+    plt.text(0.7, table_y, "Assessment", fontsize=12, fontweight='bold')
+    table_y -= 0.03
+    
+    # Draw horizontal line
+    plt.plot([0.15, 0.85], [table_y+0.005, table_y+0.005], 'k-', linewidth=1)
+    
+    # Fill Score
+    table_y -= 0.03
+    plt.text(0.15, table_y, "Fill Quality", fontsize=11)
+    plt.text(0.5, table_y, f"{fill_score:.1f}", fontsize=11)
+    assessment, color = get_score_assessment(fill_score)
+    plt.text(0.7, table_y, assessment, fontsize=11, color=color)
+    
+    # Temperature Score
+    table_y -= 0.03
+    plt.text(0.15, table_y, "Temperature Control", fontsize=11)
+    plt.text(0.5, table_y, f"{temperature_score:.1f}", fontsize=11)
+    assessment, color = get_score_assessment(temperature_score)
+    plt.text(0.7, table_y, assessment, fontsize=11, color=color)
+    
+    # Flow Score
+    table_y -= 0.03
+    plt.text(0.15, table_y, "Flow Velocity", fontsize=11)
+    plt.text(0.5, table_y, f"{flow_score:.1f}", fontsize=11)
+    assessment, color = get_score_assessment(flow_score)
+    plt.text(0.7, table_y, assessment, fontsize=11, color=color)
+    
+    # Turbulence Score
+    table_y -= 0.03
+    plt.text(0.15, table_y, "Turbulence Control", fontsize=11)
+    plt.text(0.5, table_y, f"{turbulence_score:.1f}", fontsize=11)
+    assessment, color = get_score_assessment(turbulence_score)
+    plt.text(0.7, table_y, assessment, fontsize=11, color=color)
+    
+    # Overall Score
+    table_y -= 0.03
+    plt.plot([0.15, 0.85], [table_y+0.01, table_y+0.01], 'k-', linewidth=1)
+    table_y -= 0.03
+    plt.text(0.15, table_y, "Overall Process Capability", fontsize=11, fontweight='bold')
+    plt.text(0.5, table_y, f"{overall_score:.1f}", fontsize=11, fontweight='bold')
+    assessment, color = get_score_assessment(overall_score)
+    plt.text(0.7, table_y, assessment, fontsize=11, fontweight='bold', color=color)
+    
+    # Draw bottom line
+    table_y -= 0.015
+    plt.plot([0.15, 0.85], [table_y, table_y], 'k-', linewidth=1)
+    
+    y_pos = table_y - 0.06
+    
+    # Visualize the scores as a radar chart
+    ax = plt.axes([0.2, y_pos-0.3, 0.6, 0.3], polar=True)
+    categories = ['Fill\nQuality', 'Temperature\nControl', 'Flow\nVelocity', 'Turbulence\nControl']
+    values = [fill_score, temperature_score, flow_score, turbulence_score]
+    
+    # Close the plot by appending the first value
+    values.append(values[0])
+    
+    # Compute angles for each category (in radians)
+    angles = np.linspace(0, 2*np.pi, len(categories), endpoint=False).tolist()
+    angles.append(angles[0])  # Close the loop
+    
+    # Plot data and fill area
+    ax.plot(angles, values, 'o-', linewidth=2, color='blue')
+    ax.fill(angles, values, alpha=0.25, color='blue')
+    
+    # Set category labels
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(categories)
+    
+    # Set y-axis limits
+    ax.set_ylim(0, 10)
+    ax.set_yticks([2, 4, 6, 8, 10])
+    ax.set_yticklabels(['2', '4', '6', '8', '10'])
+    
+    # Add a title
+    ax.set_title('Process Capability Radar Chart', y=1.1, fontsize=14)
+    
+    y_pos -= 0.35
+    
+    # Process Improvement Path
+    y_pos -= 0.02
+    plt.text(0.1, y_pos, "Process Improvement Path:", fontsize=14, fontweight='bold')
+    y_pos -= 0.04
+    
+    if overall_score < 5:
+        plt.text(0.15, y_pos, "Major Process Redesign Required", fontsize=12, color='red')
+        y_pos -= 0.03
+        plt.text(0.2, y_pos, "• Consider fundamental gating system redesign", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "• Consult with foundry process engineers", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "• Run additional simulations with revised parameters", fontsize=11)
+        y_pos -= 0.025
+    elif overall_score < 7:
+        plt.text(0.15, y_pos, "Process Optimization Needed", fontsize=12, color='orange')
+        y_pos -= 0.03
+        plt.text(0.2, y_pos, "• Implement recommended parameter adjustments", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "• Focus on aspects with lowest scores", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "• Verify improvements with follow-up simulation", fontsize=11)
+        y_pos -= 0.025
+    else:
+        plt.text(0.15, y_pos, "Process Refinement", fontsize=12, color='green')
+        y_pos -= 0.03
+        plt.text(0.2, y_pos, "• Minor parameter adjustments may improve quality further", fontsize=11)
+        y_pos -= 0.025
+        plt.text(0.2, y_pos, "• Focus on consistency in production", fontsize=11)
+        y_pos -= 0.025
+    
+    pdf.savefig()
+    plt.close()
+
+
+def calculate_fill_score(results, config):
+    """Calculate a score (0-10) for fill quality"""
+    fill_status = results.get('fill_status', {})
+    
+    if 'unfilled_percentage' not in fill_status:
+        return 5.0  # Default middle score if data unavailable
+    
+    unfilled = fill_status['unfilled_percentage']
+    acceptable = config['quality_checks']['acceptable_unfilled_percentage']
+    
+    if unfilled <= acceptable/2:
+        # Excellent fill: 9-10
+        score = 10 - (unfilled / acceptable) * 2
+    elif unfilled <= acceptable:
+        # Good fill: 7-9
+        ratio = (unfilled - acceptable/2) / (acceptable/2)
+        score = 9 - (ratio * 2)
+    elif unfilled <= acceptable*2:
+        # Poor fill: 4-7
+        ratio = (unfilled - acceptable) / acceptable
+        score = 7 - (ratio * 3)
+    else:
+        # Very poor fill: 0-4
+        ratio = min(1, (unfilled - acceptable*2) / acceptable/3)
+        score = 4 - (ratio * 4)
+    
+    return max(0, min(10, score))
+
+
+def calculate_temperature_score(results, config):
+    """Calculate a score (0-10) for temperature control"""
+    temp = results.get('temperature', {})
+    
+    if 'min' not in temp or 'max' not in temp:
+        return 5.0  # Default middle score if data unavailable
+    
+    min_temp = temp['min']
+    temp_range = temp.get('range', 0)
+    
+    min_acceptable = config['quality_checks']['min_front_temperature']
+    max_gradient = config['quality_checks'].get('max_temperature_gradient', 100)
+    
+    # Score based on minimum temperature
+    if min_temp >= min_acceptable:
+        min_temp_score = 10
+    elif min_temp >= min_acceptable * 0.9:
+        # Within 10% of threshold: 7-10
+        ratio = (min_acceptable - min_temp) / (min_acceptable * 0.1)
+        min_temp_score = 10 - (ratio * 3)
+    elif min_temp >= min_acceptable * 0.7:
+        # Within 30% of threshold: 4-7
+        ratio = (min_acceptable * 0.9 - min_temp) / (min_acceptable * 0.2)
+        min_temp_score = 7 - (ratio * 3)
+    else:
+        # Below 70% of threshold: 0-4
+        ratio = min(1, (min_acceptable * 0.7 - min_temp) / (min_acceptable * 0.7))
+        min_temp_score = 4 - (ratio * 4)
+    
+    # Score based on temperature gradient
+    if temp_range <= max_gradient * 0.5:
+        # Excellent gradient: 9-10
+        ratio = temp_range / (max_gradient * 0.5)
+        gradient_score = 10 - (ratio * 1)
+    elif temp_range <= max_gradient:
+        # Good gradient: 7-9
+        ratio = (temp_range - max_gradient * 0.5) / (max_gradient * 0.5)
+        gradient_score = 9 - (ratio * 2)
+    elif temp_range <= max_gradient * 1.5:
+        # Poor gradient: 4-7
+        ratio = (temp_range - max_gradient) / (max_gradient * 0.5)
+        gradient_score = 7 - (ratio * 3)
+    else:
+        # Very poor gradient: 0-4
+        ratio = min(1, (temp_range - max_gradient * 1.5) / (max_gradient * 1.5))
+        gradient_score = 4 - (ratio * 4)
+
+    # Overall temperature score is the average of the minimum temperature and gradient scores
+    return (min_temp_score + gradient_score) / 2
+
+
+def calculate_flow_score(results, config):
+    """Calculate a score (0-10) for flow velocity control"""
+    vel = results.get('velocity', {})
+    
+    if 'average' not in vel or 'max' not in vel:
+        return 5.0  # Default middle score if data unavailable
+    
+    avg_vel = vel['average']
+    max_vel = vel['max']
+    
+    min_acceptable = config['casting'].get('min_velocity', 0.5)
+    max_acceptable = config['casting'].get('max_velocity', 1.5)
+    
+    # Score based on average velocity
+    if avg_vel >= min_acceptable and avg_vel <= (min_acceptable + max_acceptable) / 2:
+        # Ideal average velocity: 8-10
+        ratio = (avg_vel - min_acceptable) / ((min_acceptable + max_acceptable) / 2 - min_acceptable)
+        avg_score = 8 + (ratio * 2)
+    elif avg_vel > (min_acceptable + max_acceptable) / 2 and avg_vel <= max_acceptable:
+        # Higher than ideal but acceptable: 6-8
+        ratio = (avg_vel - (min_acceptable + max_acceptable) / 2) / (max_acceptable - (min_acceptable + max_acceptable) / 2)
+        avg_score = 8 - (ratio * 2)
+    elif avg_vel < min_acceptable:
+        # Too low: 0-6 depending on how much lower
+        ratio = min(1, (min_acceptable - avg_vel) / min_acceptable)
+        avg_score = 6 - (ratio * 6)
+    else:
+        # Too high: 0-6 depending on how much higher
+        ratio = min(1, (avg_vel - max_acceptable) / max_acceptable)
+        avg_score = 6 - (ratio * 6)
+    
+    # Score based on maximum velocity
+    if max_vel <= max_acceptable:
+        # Acceptable max velocity: 8-10
+        ratio = max_vel / max_acceptable
+        max_score = 10 - (ratio * 2)
+    elif max_vel <= max_acceptable * 1.5:
+        # Moderately high: 4-8
+        ratio = (max_vel - max_acceptable) / (max_acceptable * 0.5)
+        max_score = 8 - (ratio * 4)
+    else:
+        # Very high: 0-4
+        ratio = min(1, (max_vel - max_acceptable * 1.5) / (max_acceptable * 1.5))
+        max_score = 4 - (ratio * 4)
+    
+    # Overall flow score is weighted average of average and maximum velocity scores
+    # Maximum velocity is more critical for defects, so weighted higher
+    return (avg_score * 0.4 + max_score * 0.6)
+
+
+def calculate_turbulence_score(results, config):
+    """Calculate a score (0-10) for turbulence control"""
+    turb = results.get('turbulence', {})
+    re = results.get('reynolds_number', 0)
+    
+    # If we have turbulence data, use that preferentially
+    if 'max_k' in turb:
+        max_k = turb['max_k']
+        max_k_acceptable = config['quality_checks']['max_turbulent_kinetic_energy']
+        
+        if max_k <= max_k_acceptable * 0.5:
+            # Excellent turbulence control: 9-10
+            ratio = max_k / (max_k_acceptable * 0.5)
+            return 10 - (ratio * 1)
+        elif max_k <= max_k_acceptable:
+            # Good turbulence control: 7-9
+            ratio = (max_k - max_k_acceptable * 0.5) / (max_k_acceptable * 0.5)
+            return 9 - (ratio * 2)
+        elif max_k <= max_k_acceptable * 2:
+            # Poor turbulence control: 3-7
+            ratio = (max_k - max_k_acceptable) / max_k_acceptable
+            return 7 - (ratio * 4)
+        else:
+            # Very poor turbulence control: 0-3
+            ratio = min(1, (max_k - max_k_acceptable * 2) / (max_k_acceptable * 2))
+            return 3 - (ratio * 3)
+    
+    # If no turbulence data, use Reynolds number
+    elif re > 0:
+        if re < 500:
+            # Laminar flow: 9-10
+            return 9 + min(1, (500 - re) / 500)
+        elif re < 2000:
+            # Transitional flow: 7-9
+            ratio = (re - 500) / 1500
+            return 9 - (ratio * 2)
+        elif re < 10000:
+            # Turbulent flow: 3-7
+            ratio = (re - 2000) / 8000
+            return 7 - (ratio * 4)
+        else:
+            # Highly turbulent flow: 0-3
+            ratio = min(1, (re - 10000) / 40000)
+            return 3 - (ratio * 3)
+    
+    # If no data at all
+    return 5.0  # Default middle score
+
+
+def get_score_assessment(score):
+    """Convert a numerical score to a text assessment and color"""
+    if score >= 9:
+        return "Excellent", "darkgreen"
+    elif score >= 7:
+        return "Good", "green"
+    elif score >= 5:
+        return "Acceptable", "orange"
+    elif score >= 3:
+        return "Poor", "red"
+    else:
+        return "Critical", "darkred"
+
+        

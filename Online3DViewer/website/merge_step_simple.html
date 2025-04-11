@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STP/IGES File Merger</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background-color: #333;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+        }
+        
+        .button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        .button:hover {
+            background-color: #45a049;
+        }
+        
+        .progress-container {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .progress {
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+            height: 20px;
+            position: relative;
+        }
+        
+        .progress-bar {
+            background-color: #4CAF50;
+            height: 100%;
+            border-radius: 5px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            text-align: center;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>STP/IGES File Merger</h1>
+    </div>
+    
+    <div class="container">
+        <h2>Merge CAD Files</h2>
+        <p>
+            Select two STP/STEP or IGES files and click "Merge Files" to combine them into a single model.
+            The merged file will be opened in the 3D viewer.
+        </p>
+        
+        <div class="form-group">
+            <label for="file1">First STP/IGES File:</label>
+            <input type="file" id="file1" accept=".stp,.step,.igs,.iges">
+        </div>
+        
+        <div class="form-group">
+            <label for="file2">Second STP/IGES File:</label>
+            <input type="file" id="file2" accept=".stp,.step,.igs,.iges">
+        </div>
+        
+        <div class="form-group">
+            <label for="xOffset">Distance Between Models: <span id="offsetValue">100</span> units</label>
+            <input type="range" id="xOffset" min="0" max="200" value="100" step="10">
+        </div>
+        
+        <button id="mergeButton" class="button">Merge Files</button>
+        
+        <div id="progressContainer" class="progress-container">
+            <div class="progress">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
+            <div id="progressText" class="progress-text">Processing...</div>
+        </div>
+    </div>
+    
+    <script>
+        // Register service worker for handling the merged file
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('merge-service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker registered with scope:', registration.scope);
+                })
+                .catch(error => {
+                    console.error('Service Worker registration failed:', error);
+                });
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const mergeButton = document.getElementById('mergeButton');
+            const file1Input = document.getElementById('file1');
+            const file2Input = document.getElementById('file2');
+            const xOffsetSlider = document.getElementById('xOffset');
+            const offsetValueDisplay = document.getElementById('offsetValue');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            // API endpoint for STP merging
+            const API_ENDPOINT = 'http://localhost:8082/api/merge-stp';
+            
+            // Update offset value display when slider changes
+            xOffsetSlider.addEventListener('input', () => {
+                offsetValueDisplay.textContent = xOffsetSlider.value;
+            });
+
+            mergeButton.addEventListener('click', async () => {
+                // Validate file selection
+                if (!file1Input.files.length || !file2Input.files.length) {
+                    alert('Please select two STP files to merge.');
+                    return;
+                }
+
+                const file1 = file1Input.files[0];
+                const file2 = file2Input.files[0];
+
+                // Validate file types
+                const validExtensions = ['.stp', '.step', '.igs', '.iges'];
+                const isValidFile1 = validExtensions.some(ext => file1.name.toLowerCase().endsWith(ext));
+                const isValidFile2 = validExtensions.some(ext => file2.name.toLowerCase().endsWith(ext));
+
+                if (!isValidFile1 || !isValidFile2) {
+                    alert('Both files must be in STP/STEP or IGES format.');
+                    return;
+                }
+
+                // Show progress indicator
+                progressContainer.style.display = 'block';
+                progressBar.style.width = '10%';
+                progressText.innerText = 'Uploading files...';
+
+                try {
+                    // Create FormData to send files to server
+                    const formData = new FormData();
+                    formData.append('files', file1);
+                    formData.append('files', file2);
+                    
+                    // Add x-offset as a query parameter
+                    const offsetValue = xOffsetSlider.value;
+                    const endpoint = `${API_ENDPOINT}?xOffset=${offsetValue}`;
+                    
+                    // Send files to server for merging
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    // Update progress
+                    progressBar.style.width = '60%';
+                    progressText.innerText = 'Processing files...';
+                    
+                    if (!response.ok) {
+                        let errorText = await response.text();
+                        console.error('Server error response:', errorText);
+                        console.error('Response status:', response.status, response.statusText);
+                        
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            throw new Error(errorJson.error || errorJson.details || 'Server error');
+                        } catch (e) {
+                            if (e instanceof SyntaxError) {
+                                throw new Error('Server error: ' + errorText);
+                            }
+                            throw e;
+                        }
+                    }
+                    
+                    // Parse the response to get the viewer URL
+                    const responseData = await response.json();
+                    
+                    // Update progress
+                    progressBar.style.width = '80%';
+                    progressText.innerText = 'Preparing viewer...';
+                    
+                    if (responseData.success && responseData.viewerUrl) {
+                        // Update progress
+                        progressBar.style.width = '100%';
+                        progressText.innerText = 'Opening viewer...';
+                        
+                        // Generate a fallback URL for the direct file access
+                        const fileUrl = `/temp/${responseData.fileName}`;
+                        const viewerUrl = responseData.viewerUrl;
+                        
+                        // Add download options before redirecting
+                        progressText.innerHTML = `
+                            <div>Merged file ready! Opening viewer...</div>
+                            <div style="margin-top: 10px;">
+                                <a href="${viewerUrl}" style="color: blue; text-decoration: underline;">Open in viewer</a> | 
+                                <a href="${fileUrl}?download=true" style="color: blue; text-decoration: underline;">Direct download</a>
+                            </div>
+                        `;
+                        
+                        // Set a timer to automatically redirect
+                        setTimeout(() => {
+                            window.location.href = viewerUrl;
+                        }, 1000);
+                    } else {
+                        throw new Error('Server did not return a valid viewer URL');
+                    }
+                } catch (error) {
+                    progressContainer.style.display = 'none';
+                    console.error('Error merging files:', error);
+                    alert('Error merging files: ' + error.message);
+                }
+            });
+
+            // No longer needed after switching to blob URLs
+        });
+    </script>
+</body>
+</html>

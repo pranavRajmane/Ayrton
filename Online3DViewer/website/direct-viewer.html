@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <title>Online 3D Viewer - Merged File Viewer</title>
+    <link rel="stylesheet" type="text/css" href="../build/website_dev/o3dv.website.min.css">
+    <script type="text/javascript" src="../build/website_dev/o3dv.website.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .viewer-container {
+            width: 100%;
+            height: 100vh;
+            position: relative;
+        }
+        
+        .header {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-title {
+            font-weight: bold;
+        }
+        
+        .download-link {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 16px;
+            text-decoration: none;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        
+        .viewer-area {
+            width: 100%;
+            height: calc(100vh - 50px);
+        }
+    </style>
+</head>
+<body>
+    <div class="viewer-container">
+        <div class="header">
+            <div class="header-title">Merged Model Viewer</div>
+            <div id="download-container">
+                <a href="#" id="download-link" class="download-link">Download Merged File</a>
+                <button id="export-groups-btn" class="download-link" style="margin-left: 10px; cursor: pointer; border: none;">Export Physical Groups as STL</button>
+            </div>
+        </div>
+        <div class="viewer-area" id="viewer"></div>
+        
+        <!-- Physical Groups Export Dialog -->
+        <div id="export-dialog" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+            <div style="background-color: white; width: 80%; max-width: 600px; margin: 50px auto; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.3);">
+                <h3 style="margin-top: 0;">Export Physical Groups</h3>
+                <div id="loading-message">Loading physical groups...</div>
+                <div id="groups-list" style="max-height: 300px; overflow-y: auto; margin: 15px 0;"></div>
+                <div id="export-options" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 10px;">
+                        <input type="checkbox" id="export-remainder" checked>
+                        Export remainder (parts not in selected groups)
+                    </label>
+                </div>
+                <div style="text-align: right;">
+                    <button id="cancel-export" style="padding: 8px 16px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; margin-right: 10px;">Cancel</button>
+                    <button id="confirm-export" style="padding: 8px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px;">Export Selected Groups</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        window.addEventListener('load', function() {
+            // Extract the file path from the query string
+            const urlParams = new URLSearchParams(window.location.search);
+            const filePath = urlParams.get('file');
+            
+            if (!filePath) {
+                alert('No file specified');
+                return;
+            }
+            
+            // Set up the download link
+            const downloadLink = document.getElementById('download-link');
+            downloadLink.href = `/temp/${filePath}?download=true`;
+            
+            // Initialize UI elements for physical group export
+            const exportGroupsBtn = document.getElementById('export-groups-btn');
+            const exportDialog = document.getElementById('export-dialog');
+            const loadingMessage = document.getElementById('loading-message');
+            const groupsList = document.getElementById('groups-list');
+            const cancelExportBtn = document.getElementById('cancel-export');
+            const confirmExportBtn = document.getElementById('confirm-export');
+            const exportRemainderCheckbox = document.getElementById('export-remainder');
+            
+            // Model and viewer variables
+            let model = null;
+            let viewer = null;
+            let physicalGroups = [];
+            
+            try {
+                // Create a full URL for the file
+                const fileUrl = window.location.origin + `/temp/${filePath}`;
+                console.log("Loading file from URL:", fileUrl);
+                
+                // Initialize the embedded viewer
+                const viewerElement = document.getElementById('viewer');
+                viewer = new OV.EmbeddedViewer(viewerElement);
+                
+                // Add a status update 
+                const statusElement = document.createElement('div');
+                statusElement.style.position = 'absolute';
+                statusElement.style.bottom = '10px';
+                statusElement.style.left = '10px';
+                statusElement.style.backgroundColor = 'rgba(0,0,0,0.5)';
+                statusElement.style.color = 'white';
+                statusElement.style.padding = '5px 10px';
+                statusElement.style.borderRadius = '3px';
+                statusElement.textContent = 'Loading model...';
+                viewerElement.appendChild(statusElement);
+                
+                // Load the model with callbacks to track progress
+                // Use custom loading instead of the standard Load method
+                // This prevents mesh merging and maintains selectability
+                customLoadIgesStep(fileUrl, viewer, model => {
+                    // Model loaded callback
+                    statusElement.textContent = 'Model loaded successfully!';
+                    setTimeout(() => {
+                        statusElement.style.opacity = '0';
+                        statusElement.style.transition = 'opacity 1s';
+                    }, 2000);
+                    
+                    // Save model reference
+                    window.model = model;
+                    
+                    // Create individual groups for each mesh
+                    const meshInstances = [];
+                    model.EnumerateMeshInstances((meshInstance) => {
+                        meshInstances.push(meshInstance);
+                    });
+                    
+                    console.log(`Found ${meshInstances.length} mesh instances to make selectable`);
+                    
+                    // If we have meshes and it's a merged file, create individual groups
+                    if (meshInstances.length > 0 && filePath.startsWith('merged_')) {
+                        console.log('Creating independent mesh groups for merged model');
+                        
+                        // Split mesh instances into two models based on position
+                        let midpoint = 0;
+                        
+                        // Calculate bounds to find a natural split point
+                        const modelBox = new OV.Box3D();
+                        const meshCenters = [];
+                        
+                        meshInstances.forEach(meshInstance => {
+                            const meshBox = new OV.Box3D();
+                            meshInstance.EnumerateVertices(vertex => {
+                                meshBox.AddPoint(vertex);
+                                modelBox.AddPoint(vertex);
+                            });
+                            meshCenters.push(meshBox.center().x);
+                        });
+                        
+                        // Sort centers to find largest gap
+                        if (meshCenters.length > 1) {
+                            meshCenters.sort((a, b) => a - b);
+                            let maxGap = 0;
+                            let gapIndex = 0;
+                            
+                            for (let i = 0; i < meshCenters.length - 1; i++) {
+                                const gap = meshCenters[i+1] - meshCenters[i];
+                                if (gap > maxGap) {
+                                    maxGap = gap;
+                                    gapIndex = i;
+                                }
+                            }
+                            
+                            if (maxGap > 1.0) {
+                                midpoint = (meshCenters[gapIndex] + meshCenters[gapIndex+1]) / 2;
+                                console.log(`Found natural split at x=${midpoint} (gap=${maxGap})`);
+                            } else {
+                                midpoint = (modelBox.min.x + modelBox.max.x) / 2;
+                                console.log(`Using midpoint split at x=${midpoint}`);
+                            }
+                        }
+                        
+                        // Create model groups
+                        const model1Group = new OV.PhysicalGroup('Model_1');
+                        const model2Group = new OV.PhysicalGroup('Model_2');
+                        
+                        // Process each mesh instance
+                        meshInstances.forEach((meshInstance, index) => {
+                            // Create a group just for this mesh
+                            const meshGroup = new OV.PhysicalGroup(`Mesh_${index+1}`);
+                            meshGroup.AddMesh(meshInstance.GetId());
+                            model.AddPhysicalGroup(meshGroup);
+                            
+                            // Get center position to assign to model1/model2
+                            const meshBox = new OV.Box3D();
+                            meshInstance.EnumerateVertices(vertex => {
+                                meshBox.AddPoint(vertex);
+                            });
+                            
+                            const center = meshBox.center();
+                            if (center.x < midpoint) {
+                                model1Group.AddMesh(meshInstance.GetId());
+                            } else {
+                                model2Group.AddMesh(meshInstance.GetId());
+                            }
+                        });
+                        
+                        // Add model groups
+                        if (model1Group.MeshCount() > 0) {
+                            model.AddPhysicalGroup(model1Group);
+                        }
+                        
+                        if (model2Group.MeshCount() > 0) {
+                            model.AddPhysicalGroup(model2Group);
+                        }
+                        
+                        exportGroupsBtn.style.display = 'inline-block';
+                    } else if (model.PhysicalGroupCount && model.PhysicalGroupCount() > 0) {
+                        exportGroupsBtn.style.display = 'inline-block';
+                    } else {
+                        exportGroupsBtn.style.display = 'none';
+                    }
+                }, errorMessage => {
+                    // Error callback
+                    console.error('Error loading model:', errorMessage);
+                    statusElement.textContent = 'Error: ' + errorMessage;
+                    statusElement.style.backgroundColor = 'rgba(220,53,69,0.8)';
+                });
+                
+                // Custom loader function that prevents mesh merging
+                function customLoadIgesStep(fileUrl, viewer, onSuccess, onError) {
+                    console.log("Using custom loader to preserve individual meshes");
+                    
+                    // Create an XMLHttpRequest to load the file
+                    const request = new XMLHttpRequest();
+                    request.open('GET', fileUrl, true);
+                    request.responseType = 'blob';
+                    
+                    request.onload = function() {
+                        if (request.status === 200) {
+                            const blob = request.response;
+                            const file = new File([blob], fileUrl.split('/').pop());
+                            
+                            // Create a file list with just this file
+                            const fileList = [file];
+                            
+                            // Process using the importer with special settings
+                            const settings = new OV.ImportSettings();
+                            
+                            // Critical: Set these settings to prevent mesh merging
+                            settings.mergeCoplanarFaces = false;
+                            settings.mergeMaterials = false;
+                            
+                            // Use the ThreeModelLoader directly with our settings
+                            const modelLoader = new OV.ThreeModelLoader();
+                            modelLoader.LoadModel(OV.InputFilesFromFileObjects(fileList), settings, {
+                                onModelFinished: (importResult, threeObject) => {
+                                    // Set the loaded model as the main object
+                                    viewer.SetMainObject(threeObject);
+                                    
+                                    // Calculate the bounding sphere and adjust view
+                                    const boundingSphere = viewer.GetBoundingSphere(() => true);
+                                    viewer.AdjustClippingPlanesToSphere(boundingSphere);
+                                    viewer.SetUpVector(OV.Direction.Y, false);
+                                    viewer.FitSphereToWindow(boundingSphere, false);
+                                    
+                                    // Call success with the model
+                                    if (onSuccess) {
+                                        onSuccess(importResult.model);
+                                    }
+                                },
+                                onError: (errorMessage) => {
+                                    if (onError) {
+                                        onError(errorMessage);
+                                    }
+                                }
+                            });
+                        }
+                    };
+                    
+                    request.onerror = function() {
+                        if (onError) {
+                            onError("Failed to load file");
+                        }
+                    };
+                    
+                    request.send();
+                }
+                });
+                
+                // Set up export dialog events
+                exportGroupsBtn.addEventListener('click', () => {
+                    openExportDialog();
+                });
+                
+                cancelExportBtn.addEventListener('click', () => {
+                    exportDialog.style.display = 'none';
+                });
+                
+                confirmExportBtn.addEventListener('click', () => {
+                    exportSelectedGroups();
+                });
+                
+                // Function to open the export dialog and load physical groups
+                function openExportDialog() {
+                    exportDialog.style.display = 'block';
+                    loadingMessage.style.display = 'block';
+                    groupsList.innerHTML = '';
+                    
+                    // Check if model is loaded and has physical groups
+                    if (!model || !model.PhysicalGroupCount || model.PhysicalGroupCount() === 0) {
+                        loadingMessage.textContent = 'No physical groups found in the model.';
+                        confirmExportBtn.disabled = true;
+                        return;
+                    }
+                    
+                    // Clear physical groups array
+                    physicalGroups = [];
+                    
+                    // Enumerate physical groups
+                    model.EnumeratePhysicalGroups((group) => {
+                        physicalGroups.push(group);
+                    });
+                    
+                    // Create checkboxes for each physical group
+                    loadingMessage.style.display = 'none';
+                    let html = '';
+                    
+                    physicalGroups.forEach((group, index) => {
+                        const groupName = group.GetName();
+                        const meshCount = group.MeshCount ? group.MeshCount() : 0;
+                        
+                        html += `
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: block;">
+                                    <input type="checkbox" data-group-index="${index}" checked>
+                                    <span style="font-weight: bold;">${groupName}</span> (${meshCount} mesh${meshCount !== 1 ? 'es' : ''})
+                                </label>
+                            </div>
+                        `;
+                    });
+                    
+                    groupsList.innerHTML = html;
+                    confirmExportBtn.disabled = false;
+                }
+                
+                // Function to export selected physical groups as STL
+                function exportSelectedGroups() {
+                    // Get selected group indices
+                    const selectedGroupIndices = Array.from(groupsList.querySelectorAll('input[type="checkbox"]:checked'))
+                        .map(checkbox => parseInt(checkbox.getAttribute('data-group-index')));
+                    
+                    // Check if any groups are selected
+                    if (selectedGroupIndices.length === 0 && !exportRemainderCheckbox.checked) {
+                        alert('Please select at least one group or check "Export remainder".');
+                        return;
+                    }
+                    
+                    // Create a ZIP to hold all exported files
+                    const JSZip = window.JSZip;
+                    if (!JSZip) {
+                        // Load JSZip if not already loaded
+                        const script = document.createElement('script');
+                        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                        script.onload = () => exportSelectedGroups();
+                        document.head.appendChild(script);
+                        return;
+                    }
+                    
+                    // Show export progress
+                    loadingMessage.style.display = 'block';
+                    loadingMessage.textContent = 'Exporting physical groups...';
+                    groupsList.style.display = 'none';
+                    confirmExportBtn.disabled = true;
+                    cancelExportBtn.disabled = true;
+                    
+                    try {
+                        // Create a new ZIP file
+                        const zip = new JSZip();
+                        
+                        // Keep track of all mesh instances and faces used in selected groups
+                        const usedMeshInstances = new Map(); // mesh key -> array of face indices
+                        
+                        // For each selected group, create an STL file
+                        selectedGroupIndices.forEach(groupIndex => {
+                            const group = physicalGroups[groupIndex];
+                            const groupName = group.GetName();
+                            const sanitizedName = groupName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                            
+                            // Create a new model containing only meshes/faces from this group
+                            const groupModel = new OV.Model();
+                            
+                            // Clone materials from the original model
+                            for (let i = 0; i < model.MaterialCount(); i++) {
+                                const material = model.GetMaterial(i);
+                                groupModel.AddMaterial(material.Clone());
+                            }
+                            
+                            // Process each mesh in the group
+                            const meshesToProcess = new Map(); // meshInstanceId.GetKey() -> { meshInstance, faceIndices }
+                            
+                            // First collect all mesh instance IDs and their face indices from the group
+                            model.EnumerateMeshInstances(meshInstance => {
+                                const meshId = meshInstance.GetMesh().GetId();
+                                const meshKey = meshId.GetKey();
+                                
+                                if (group.ContainsMesh(meshId)) {
+                                    // Get face indices for this mesh in the group
+                                    const faceIndices = group.GetMeshFaceIndices(meshId);
+                                    
+                                    // Store mesh instance with face indices for processing
+                                    meshesToProcess.set(meshKey, {
+                                        meshInstance: meshInstance,
+                                        faceIndices: faceIndices
+                                    });
+                                    
+                                    // Track used mesh instances and faces for remainder calculation
+                                    if (!usedMeshInstances.has(meshKey)) {
+                                        usedMeshInstances.set(meshKey, []);
+                                    }
+                                    
+                                    // If no specific faces are listed, all faces are used
+                                    if (faceIndices.length === 0) {
+                                        // Mark entire mesh as used for remainder calculation
+                                        usedMeshInstances.set(meshKey, 'all');
+                                    } else {
+                                        // Add these face indices to the used set
+                                        const currentUsed = usedMeshInstances.get(meshKey);
+                                        if (currentUsed !== 'all') {
+                                            usedMeshInstances.set(meshKey, [...new Set([...currentUsed, ...faceIndices])]);
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            // Process each mesh to extract the required triangles
+                            meshesToProcess.forEach((data, meshKey) => {
+                                const { meshInstance, faceIndices } = data;
+                                const originalMesh = meshInstance.GetMesh();
+                                
+                                // If no face indices specified, it means entire mesh is in the group
+                                if (faceIndices.length === 0) {
+                                    // Clone the entire mesh
+                                    const clonedMesh = originalMesh.Clone();
+                                    const clonedMeshInstance = new OV.MeshInstance(clonedMesh);
+                                    clonedMeshInstance.SetTransformation(meshInstance.GetTransformation());
+                                    groupModel.AddMeshInstance(clonedMeshInstance);
+                                } else {
+                                    // Create a new mesh with only the specified faces
+                                    const clonedMesh = new OV.Mesh();
+                                    
+                                    // Copy all vertices, normals and texture coords
+                                    for (let i = 0; i < originalMesh.VertexCount(); i++) {
+                                        clonedMesh.AddVertex(originalMesh.GetVertex(i));
+                                    }
+                                    
+                                    // Only copy normals if they exist in the original
+                                    if (originalMesh.NormalCount() > 0) {
+                                        for (let i = 0; i < originalMesh.NormalCount(); i++) {
+                                            clonedMesh.AddNormal(originalMesh.GetNormal(i));
+                                        }
+                                    }
+                                    
+                                    // Only copy texture UVs if they exist in the original
+                                    if (originalMesh.TextureUVCount() > 0) {
+                                        for (let i = 0; i < originalMesh.TextureUVCount(); i++) {
+                                            clonedMesh.AddTextureUV(originalMesh.GetTextureUV(i));
+                                        }
+                                    }
+                                    
+                                    // Copy only the triangles from the specified face indices
+                                    faceIndices.forEach(faceIndex => {
+                                        // Get triangle from original mesh
+                                        const triangle = originalMesh.GetTriangle(faceIndex);
+                                        
+                                        // Add triangle with the same material
+                                        clonedMesh.AddTriangle(
+                                            triangle.v0, 
+                                            triangle.v1,
+                                            triangle.v2,
+                                            triangle.n0,
+                                            triangle.n1,
+                                            triangle.n2,
+                                            triangle.mat,
+                                            triangle.curve
+                                        );
+                                    });
+                                    
+                                    // Add the new mesh to the model if it has triangles
+                                    if (clonedMesh.TriangleCount() > 0) {
+                                        const clonedMeshInstance = new OV.MeshInstance(clonedMesh);
+                                        clonedMeshInstance.SetTransformation(meshInstance.GetTransformation());
+                                        groupModel.AddMeshInstance(clonedMeshInstance);
+                                    }
+                                }
+                            });
+                            
+                            // Export group model to STL if it has any mesh instances
+                            if (groupModel.MeshInstanceCount() > 0) {
+                                const exporter = new OV.Exporter();
+                                const stlContent = exporter.ExportToStlString(groupModel);
+                                
+                                // Add to ZIP
+                                zip.file(`${sanitizedName}.stl`, stlContent);
+                            }
+                        });
+                        
+                        // Export remainder (meshes or faces not in any selected group)
+                        if (exportRemainderCheckbox.checked) {
+                            // Create a new model for remainder meshes
+                            const remainderModel = new OV.Model();
+                            
+                            // Clone materials from the original model
+                            for (let i = 0; i < model.MaterialCount(); i++) {
+                                const material = model.GetMaterial(i);
+                                remainderModel.AddMaterial(material.Clone());
+                            }
+                            
+                            // Find meshes not in any selected group or faces not used
+                            model.EnumerateMeshInstances(meshInstance => {
+                                const meshId = meshInstance.GetMesh().GetId();
+                                const meshKey = meshId.GetKey();
+                                const originalMesh = meshInstance.GetMesh();
+                                
+                                if (!usedMeshInstances.has(meshKey)) {
+                                    // This mesh isn't in any selected group, include the entire mesh
+                                    const clonedMesh = originalMesh.Clone();
+                                    const clonedMeshInstance = new OV.MeshInstance(clonedMesh);
+                                    clonedMeshInstance.SetTransformation(meshInstance.GetTransformation());
+                                    remainderModel.AddMeshInstance(clonedMeshInstance);
+                                } else if (usedMeshInstances.get(meshKey) !== 'all') {
+                                    // Only some faces of this mesh are used in groups
+                                    // Create a mesh with only the unused faces
+                                    const usedFaces = usedMeshInstances.get(meshKey);
+                                    const clonedMesh = new OV.Mesh();
+                                    
+                                    // Copy all vertices, normals and texture coords
+                                    for (let i = 0; i < originalMesh.VertexCount(); i++) {
+                                        clonedMesh.AddVertex(originalMesh.GetVertex(i));
+                                    }
+                                    
+                                    // Only copy normals if they exist in the original
+                                    if (originalMesh.NormalCount() > 0) {
+                                        for (let i = 0; i < originalMesh.NormalCount(); i++) {
+                                            clonedMesh.AddNormal(originalMesh.GetNormal(i));
+                                        }
+                                    }
+                                    
+                                    // Only copy texture UVs if they exist in the original
+                                    if (originalMesh.TextureUVCount() > 0) {
+                                        for (let i = 0; i < originalMesh.TextureUVCount(); i++) {
+                                            clonedMesh.AddTextureUV(originalMesh.GetTextureUV(i));
+                                        }
+                                    }
+                                    
+                                    // Add triangles that aren't in any selected group
+                                    let unusedFacesFound = false;
+                                    for (let i = 0; i < originalMesh.TriangleCount(); i++) {
+                                        if (!usedFaces.includes(i)) {
+                                            // This face is not in any selected group
+                                            const triangle = originalMesh.GetTriangle(i);
+                                            clonedMesh.AddTriangle(
+                                                triangle.v0, 
+                                                triangle.v1,
+                                                triangle.v2,
+                                                triangle.n0,
+                                                triangle.n1,
+                                                triangle.n2,
+                                                triangle.mat,
+                                                triangle.curve
+                                            );
+                                            unusedFacesFound = true;
+                                        }
+                                    }
+                                    
+                                    // Add the new mesh to the model if it has triangles
+                                    if (unusedFacesFound) {
+                                        const clonedMeshInstance = new OV.MeshInstance(clonedMesh);
+                                        clonedMeshInstance.SetTransformation(meshInstance.GetTransformation());
+                                        remainderModel.AddMeshInstance(clonedMeshInstance);
+                                    }
+                                }
+                                // If usedMeshInstances.get(meshKey) === 'all', entire mesh is used in groups, 
+                                // so nothing to add to remainder
+                            });
+                            
+                            // Export remainder model to STL if it has any mesh instances
+                            if (remainderModel.MeshInstanceCount() > 0) {
+                                const exporter = new OV.Exporter();
+                                const stlContent = exporter.ExportToStlString(remainderModel);
+                                
+                                // Add to ZIP
+                                zip.file('remainder.stl', stlContent);
+                            }
+                        }
+                        
+                        // Generate and download the ZIP file
+                        zip.generateAsync({ type: 'blob' }).then(blob => {
+                            // Create a download link
+                            const downloadLink = document.createElement('a');
+                            downloadLink.href = URL.createObjectURL(blob);
+                            downloadLink.download = 'physical_groups.zip';
+                            downloadLink.click();
+                            
+                            // Clean up
+                            URL.revokeObjectURL(downloadLink.href);
+                            
+                            // Close the dialog
+                            exportDialog.style.display = 'none';
+                            
+                            // Reset UI
+                            loadingMessage.style.display = 'block';
+                            groupsList.style.display = 'block';
+                            confirmExportBtn.disabled = false;
+                            cancelExportBtn.disabled = false;
+                        });
+                    } catch (error) {
+                        console.error('Error exporting physical groups:', error);
+                        alert('Error exporting physical groups: ' + error.message);
+                        
+                        // Reset UI
+                        loadingMessage.style.display = 'block';
+                        groupsList.style.display = 'block';
+                        confirmExportBtn.disabled = false;
+                        cancelExportBtn.disabled = false;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error initializing viewer:', error);
+                alert('Error initializing viewer: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>

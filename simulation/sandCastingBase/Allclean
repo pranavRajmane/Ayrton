@@ -1,0 +1,22 @@
+#!/bin/sh
+cd ${0%/*} || exit 1    # Run from this directory
+
+# Source tutorial run functions
+. $WM_PROJECT_DIR/bin/tools/RunFunctions
+
+# Clean the case first (optional - you may want to remove this for the optimization)
+# . $WM_PROJECT_DIR/bin/tools/CleanFunctions
+# cleanVoFCase
+
+# Decompose the case for parallel running
+runApplication decomposePar
+
+# Run the simulation in parallel
+runApplication mpirun -np 4 foamRun -parallel
+
+# Reconstruct for post-processing
+runApplication reconstructPar
+
+echo "Simulation completed successfully"
+
+#------------------------------------------------------------------------------

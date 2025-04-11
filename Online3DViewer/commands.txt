@@ -1,0 +1,4 @@
+lsof -i :8082 | grep LISTEN | awk '{print $2}' | xargs kill -9       
+cd /Users/pranav/Desktop/project2/v4/Online3DViewer && node server.js & 
+cd /Users/pranav/Desktop/project2/v4/Online3DViewer && npm run build_website_dev
+cd /Users/pranav/Desktop/project2/v4/Online3DViewer && http-server ./     

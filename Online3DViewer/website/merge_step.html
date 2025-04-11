@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html;charset=utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <link rel="icon" type="image/png" href="../website/assets/images/3dviewer_net_favicon.ico">
+    <title>STP Merger - Online 3D Viewer</title>
+    <link rel="stylesheet" type="text/css" href="../source/website/css/website.css">
+    <link rel="stylesheet" type="text/css" href="../source/website/css/dialogs.css">
+    <link rel="stylesheet" type="text/css" href="css/merger.css">
+    
+    <!-- Add basic fallback styling in case external CSS fails to load -->
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        .header { background-color: #f1f1f1; padding: 15px; }
+        .title { display: flex; justify-content: space-between; align-items: center; }
+        .title-left { display: flex; align-items: center; }
+        .title-right { font-size: 18px; font-weight: bold; }
+        .main { padding: 20px; }
+        .merger-container { max-width: 800px; margin: 0 auto; }
+        .merger-panel { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; }
+        .merger-panel-title { font-size: 20px; font-weight: bold; margin-bottom: 20px; }
+        .merger-panel-section { margin-bottom: 15px; }
+        .merger-panel-button { background: #3498db; color: white; padding: 10px 20px; 
+                              border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+    <!-- We'll load only essential JS -->
+    <!-- <script type="text/javascript" src="../build/website_dev/o3dv.website.min.js"></script> -->
+</head>
+<body>
+    <div class="header">
+        <div class="title">
+            <div class="title-left">
+                <a href="../website/index.html" style="text-decoration: none; color: #333; font-weight: bold; font-size: 18px;">
+                    Online 3D Viewer
+                </a>
+            </div>
+            <div class="title-right">STP File Merger</div>
+        </div>
+    </div>
+    <div class="main">
+        <div class="merger-container">
+            <div class="merger-panel">
+                <div class="merger-panel-title">Merge STP Files</div>
+                <div class="merger-panel-content">
+                    <div class="merger-panel-section">
+                        <div class="merger-panel-text">
+                            This tool allows you to merge two STP/STEP files into a single model using GMSH. Select two files and click "Merge" to combine them.
+                        </div>
+                    </div>
+                    <div class="merger-panel-section">
+                        <div class="merger-panel-label">First STP File:</div>
+                        <div class="merger-panel-input">
+                            <input type="file" id="file1" accept=".stp,.step">
+                        </div>
+                    </div>
+                    <div class="merger-panel-section">
+                        <div class="merger-panel-label">Second STP File:</div>
+                        <div class="merger-panel-input">
+                            <input type="file" id="file2" accept=".stp,.step">
+                        </div>
+                    </div>
+                    <div class="merger-panel-section">
+                        <div class="merger-panel-label">Distance Between Models:</div>
+                        <div class="merger-panel-input">
+                            <input type="range" id="xOffset" min="0" max="200" value="100" step="10">
+                            <span id="offsetValue">100</span> units
+                        </div>
+                    </div>
+                    <div class="merger-panel-buttons">
+                        <div class="merger-panel-button" id="mergeButton">Merge Files</div>
+                    </div>
+                    <div class="merger-panel-progress" id="progressContainer" style="display: none;">
+                        <div class="merger-panel-progress-bar" id="progressBar"></div>
+                        <div class="merger-panel-progress-text" id="progressText">Processing...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        window.addEventListener('load', () => {
+            const mergeButton = document.getElementById('mergeButton');
+            const file1Input = document.getElementById('file1');
+            const file2Input = document.getElementById('file2');
+            const xOffsetSlider = document.getElementById('xOffset');
+            const offsetValueDisplay = document.getElementById('offsetValue');
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            // API endpoint for STP merging
+            const API_ENDPOINT = 'http://localhost:8082/api/merge-stp';
+            
+            // Update offset value display when slider changes
+            xOffsetSlider.addEventListener('input', () => {
+                offsetValueDisplay.textContent = xOffsetSlider.value;
+            });
+
+            mergeButton.addEventListener('click', async () => {
+                // Validate file selection
+                if (!file1Input.files.length || !file2Input.files.length) {
+                    alert('Please select two STP files to merge.');
+                    return;
+                }
+
+                const file1 = file1Input.files[0];
+                const file2 = file2Input.files[0];
+
+                // Validate file types
+                const validExtensions = ['.stp', '.step'];
+                const isValidFile1 = validExtensions.some(ext => file1.name.toLowerCase().endsWith(ext));
+                const isValidFile2 = validExtensions.some(ext => file2.name.toLowerCase().endsWith(ext));
+
+                if (!isValidFile1 || !isValidFile2) {
+                    alert('Both files must be in STP/STEP format.');
+                    return;
+                }
+
+                // Show progress indicator
+                progressContainer.style.display = 'block';
+                progressBar.style.width = '10%';
+                progressText.innerText = 'Uploading files...';
+
+                try {
+                    // Create FormData to send files to server
+                    const formData = new FormData();
+                    formData.append('files', file1);
+                    formData.append('files', file2);
+                    
+                    // Add x-offset as a query parameter instead of form data
+                    const offsetValue = xOffsetSlider.value;
+                    const endpoint = `${API_ENDPOINT}?xOffset=${offsetValue}`;
+                    
+                    // Send files to server for merging
+                    const response = await fetch(endpoint, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    // Update progress
+                    progressBar.style.width = '60%';
+                    progressText.innerText = 'Processing files...';
+                    
+                    if (!response.ok) {
+                        let errorText = await response.text();
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            throw new Error(errorJson.error || errorJson.details || 'Server error');
+                        } catch (e) {
+                            if (e instanceof SyntaxError) {
+                                throw new Error('Server error: ' + errorText);
+                            }
+                            throw e;
+                        }
+                    }
+                    
+                    // Get the merged file as a blob
+                    const mergedFileBlob = await response.blob();
+                    
+                    // Update progress
+                    progressBar.style.width = '80%';
+                    progressText.innerText = 'Preparing viewer...';
+                    
+                    // Convert blob to base64 for storage
+                    const base64Data = await blobToBase64(mergedFileBlob);
+                    
+                    // Prepare merged model data
+                    const mergedFiles = [{
+                        name: 'merged_model.stp',
+                        source: 'merged',
+                        data: base64Data,
+                        extension: 'stp'
+                    }];
+
+                    // Update progress
+                    progressBar.style.width = '100%';
+                    progressText.innerText = 'Opening viewer...';
+
+                    // Redirect to main viewer with merged model
+                    setTimeout(() => {
+                        // Using localStorage to pass the merged model data
+                        localStorage.setItem('mergedStepFiles', JSON.stringify(mergedFiles));
+                        window.location.href = '../website/index.html?source=merged';
+                    }, 500);
+                } catch (error) {
+                    progressContainer.style.display = 'none';
+                    console.error('Error merging files:', error);
+                    alert('Error merging files: ' + error.message);
+                }
+            });
+
+            // Convert Blob to base64 string
+            function blobToBase64(blob) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        // Extract base64 data from data URL
+                        const base64Data = reader.result.split(',')[1];
+                        resolve(base64Data);
+                    };
+                    reader.onerror = (error) => reject(error);
+                    reader.readAsDataURL(blob);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
