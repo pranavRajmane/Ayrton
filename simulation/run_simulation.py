@@ -7,7 +7,7 @@ This script automates the workflow for OpenFOAM casting simulations:
 3. Modifies OpenFOAM dictionaries
 4. Runs the simulation
 
-Modified to allow for short test runs (1 second)
+Modified to run only for the filling time without post-filling cooling
 """
 
 import os
@@ -26,7 +26,7 @@ class CastingSimulationRunner:
         """Initialize the casting simulation with config file and base case directory"""
         self.yaml_file = yaml_file
         self.base_case_dir = base_case_dir
-        self.sim_case_dir = f"casting_simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        self.sim_case_dir = f"filling_simulation_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.config = None
         self.mesh_volume = None
         self.calculated_fill_time = None
@@ -129,18 +129,16 @@ class CastingSimulationRunner:
         self.results['inlet_diameter'] = inlet_diameter
         self.results['inlet_area'] = inlet_area
         
-        # Set simulation end time to fill time plus cooling time
-        cooling_time = self.config['simulation']['post_filling_cooling_time']
-        simulation_end_time = self.calculated_fill_time + cooling_time
+        # Set simulation end time to JUST the fill time (no cooling)
+        simulation_end_time = self.calculated_fill_time
         
         print(f"Calculated fill time: {self.calculated_fill_time:.2f} seconds")
+        print(f"Simulation will run for exactly the fill time: {simulation_end_time:.2f} seconds")
         
         # If in test mode, override end time to 1 second
         if self.test_mode:
             simulation_end_time = 1.0
             print(f"TEST MODE: Overriding simulation end time to {simulation_end_time} second")
-        else:
-            print(f"Simulation end time: {simulation_end_time:.2f} seconds")
         
         print(f"Estimated Reynolds number: {reynolds:.2f}")
         
@@ -152,9 +150,10 @@ class CastingSimulationRunner:
             
             # Ask user if they want to continue
             answer = input("Do you want to continue with the simulation despite high Reynolds number? (yes/no): ")
-            if answer.lower() != 'yes':
+            if answer.lower() not in ['yes', 'y']:
                 print("Simulation aborted by user.")
                 sys.exit(0)
+            print("Continuing simulation with high Reynolds number...")
         
         return simulation_end_time
     
@@ -203,7 +202,9 @@ class CastingSimulationRunner:
                 if self.test_mode and end_time == 1.0:
                     content[i] = f"writeInterval   0.1;\n"  # Write 10 times during the 1-second run
                 else:
-                    content[i] = f"writeInterval   {self.config['simulation']['write_interval']};\n"
+                    # Calculate write interval to get 10-15 output points during filling
+                    write_interval = min(end_time / 10, self.config['simulation']['write_interval'])
+                    content[i] = f"writeInterval   {write_interval};\n"
             elif "maxCo" in line and ";" in line:
                 content[i] = f"maxCo           {self.config['simulation']['max_courant_number']};\n"
         
@@ -381,12 +382,15 @@ class CastingSimulationRunner:
             print("Starting OpenFOAM simulation...")
             if self.test_mode:
                 print("TEST MODE: Running for 1 second only")
+            else:
+                print(f"FILLING ANALYSIS ONLY: Running for {self.calculated_fill_time:.2f} seconds (filling time)")
                 
             # Run the Allrun script
             subprocess.run(["./Allrun"], check=True)
             
             print("Simulation completed successfully")
             self.results['simulation_status'] = "Completed"
+            self.results['simulation_mode'] = "Filling Analysis Only"
             if self.test_mode:
                 self.results['simulation_mode'] = "Test (1 second)"
             
@@ -414,9 +418,11 @@ class CastingSimulationRunner:
             
     def run_workflow(self):
         """Run the casting simulation workflow"""
-        print("=== OpenFOAM Casting Simulation Workflow ===")
+        print("=== OpenFOAM Casting Filling Analysis Workflow ===")
         if self.test_mode:
             print("RUNNING IN TEST MODE: Simulation will run for 1 second only")
+        else:
+            print("FILLING ANALYSIS ONLY: Simulation will run only for the calculated filling time")
         
         # Step 1: Calculate mesh volume
         print("\nStep 1: Preparing case directory and analyzing mesh...")
@@ -453,7 +459,7 @@ class CastingSimulationRunner:
         config_copy = f"{self.sim_case_dir}_config.yaml"
         shutil.copy(self.yaml_file, config_copy)
         
-        print("\n=== Simulation Workflow Completed ===")
+        print("\n=== Filling Analysis Workflow Completed ===")
         print(f"Simulation directory: {self.sim_case_dir}")
         print(f"Results file: {results_file}")
         print(f"Config file: {config_copy}")
@@ -463,8 +469,8 @@ class CastingSimulationRunner:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python run_simulation.py <yaml_file> [base_case_dir] [--test]")
-        print("Example: python run_simulation.py aluminum.yaml sandCastingBase --test")
+        print("Usage: python run_filling_simulation.py <yaml_file> [base_case_dir] [--test]")
+        print("Example: python run_filling_simulation.py aluminum.yaml sandCastingBase --test")
         sys.exit(1)
     
     # Parse command line arguments

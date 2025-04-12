@@ -27,11 +27,11 @@ boundaryField
         type            noSlip;
     }
 
-    inlet
-    {
-        type            pressureInletOutletVelocity;
-        value           $internalField;
-    }
+    // inlet
+    // {
+    //     type            pressureInletOutletVelocity;
+    //     value           $internalField;
+    // }
     riser
     {
         type            pressureInletOutletVelocity;
@@ -44,7 +44,7 @@ sources
     injection
     {
         type            uniformFixedValue;
-        uniformValue    (0 0 0);
+        uniformValue    (-0.5 0 0);
     }
 }
 

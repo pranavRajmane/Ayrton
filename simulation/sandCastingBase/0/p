@@ -28,11 +28,11 @@ boundaryField
         value           $internalField;
     }
 
-    inlet
-    {
-        type            calculated;
-        value           $internalField;
-    }
+    // inlet
+    // {
+    //     type            calculated;
+    //     value           $internalField;
+    // }
     riser
     {
         type            calculated;

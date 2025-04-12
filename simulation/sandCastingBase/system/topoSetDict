@@ -57,13 +57,37 @@ actions
 
     // Convert cell set to cell zone
     {
-        name    fluid;  // Changed from internalMesh to fluid
+        name    fluid;
         type    cellZoneSet;
         action  new;
         source  setToCellZone;
         sourceInfo
         {
             set fluidCells;
+        }
+    }
+
+    // ADD THIS SECTION: Create inlet cells set for mass source
+    {
+        name    inletFaces;
+        type    faceSet;
+        action  new;
+        source  patchToFace;
+        sourceInfo
+        {
+            name inlet;
+        }
+    }
+
+    {
+        name    massSource;
+        type    cellSet;
+        action  new;
+        source  faceToCell;
+        sourceInfo
+        {
+            set     inletFaces;
+            option  owner;  // Use cells that own the faces (inside the domain)
         }
     }
 );

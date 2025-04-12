@@ -28,12 +28,12 @@ boundaryField
         value           $internalField;
     }
 
-    inlet
-    {
-        type            inletOutlet;
-        inletValue      $internalField;
-        value           $internalField;
-    }
+    // inlet
+    // {
+    //     type            inletOutlet;
+    //     inletValue      $internalField;
+    //     value           $internalField;
+    // }
     riser
     {
         type            inletOutlet;

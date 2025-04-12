@@ -18,7 +18,8 @@ FoamFile
 (
     inlet
     {
-        type            patch;
+        type            wall;
+        inGroups        List<word> 1(wall);
         nFaces          28;
         startFace       79726;
     }

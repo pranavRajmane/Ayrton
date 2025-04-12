@@ -28,11 +28,11 @@ boundaryField
         value           $internalField;
     }
 
-    inlet
-    {
-        type            prghTotalPressure;
-        p0              $internalField;
-    }
+    // inlet
+    // {
+    //     type            prghTotalPressure;
+    //     p0              $internalField;
+    // }
     riser
     {
         type            prghTotalPressure;

@@ -8,28 +8,15 @@
 FoamFile
 {
     format      ascii;
-    class       dictionary;
-    location    "system";
-    object      setFieldsDict;
+    class       cellSet;
+    location    "constant/polyMesh/sets";
+    object      massSourceCells;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-defaultFieldValues
-(
-    volScalarFieldValue alpha.water 0
-);
 
-regions
+0
 (
-    boxToCell
-    {
-        box (0 0 -1) (0.1461 0.292 1);
-        fieldValues
-        (
-            volScalarFieldValue alpha.water 1
-        );
-    }
-);
-
+)
 
 // ************************************************************************* //
