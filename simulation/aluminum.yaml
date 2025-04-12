@@ -1,0 +1,30 @@
+# Aluminum A356 Sand Casting Configuration
+
+material:
+  name: "Aluminum A356"
+  density: 2670.0  # kg/m³
+  specific_heat: 963.0  # J/(kg·K)
+  viscosity: 0.0013  # Pa·s (dynamic viscosity)
+  surface_tension: 0.914  # N/m
+  thermal_conductivity: 151.0  # W/(m·K)
+  latent_heat: 389000.0  # J/kg
+  liquidus_temperature: 615.0  # °C
+  solidus_temperature: 555.0  # °C
+
+casting:
+  cavity_volume: 0.00437478  # m³
+  pouring_temperature: 720.0  # °C
+  target_mass_flowrate: 1.2  # kg/s (reduced from 1.2 to reduce turbulence)
+  inlet_diameter: 0.03  # m (20mm)
+  min_velocity: 0.3  # m/s
+  max_velocity: 1.5  # m/s
+  max_acceptable_reynolds: 10000  # Reynolds number threshold
+
+simulation:
+  write_interval: 0.05  # s
+  max_courant_number: 1
+
+quality_checks:
+  acceptable_unfilled_percentage: 0.01  # 1%
+  min_front_temperature: 620.0  # °C (above liquidus)
+  max_turbulent_kinetic_energy: 0.05  # m²/s²
