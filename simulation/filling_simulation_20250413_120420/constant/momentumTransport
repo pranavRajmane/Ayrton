@@ -8,34 +8,23 @@
 FoamFile
 {
     format      ascii;
-    class       polyBoundaryMesh;
-    location    "constant/polyMesh";
-    object      boundary;
+    class       dictionary;
+    location    "constant";
+    object      momentumTransport;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-3
-(
-    inlet
-    {
-        type            wall;
-        inGroups        List<word> 1(wall);
-        nFaces          28;
-        startFace       79726;
-    }
-    riser
-    {
-        type            patch;
-        nFaces          47;
-        startFace       79754;
-    }
-    model
-    {
-        type            wall;
-        inGroups        List<word> 1(wall);
-        nFaces          21027;
-        startFace       79801;
-    }
-)
+simulationType  RAS;
+
+RAS
+{
+    model           kEpsilon;
+    // model           kOmega;
+
+    turbulence      on;
+
+    printCoeffs     on;
+}
+
 
 // ************************************************************************* //

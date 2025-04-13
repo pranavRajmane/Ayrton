@@ -1,9 +1,0 @@
-./runner.sh --config aluminum.yaml --base sandCastingBase
-./runner.sh --analyze-only casting_simulation_20250407_120000
-# Run simulation
-python3 run_simulation.py aluminum.yaml sandCastingBase
-
-# Then analyze results
-python3 analyzer.py casting_simulation_20250407_120000 casting_simulation_20250407_120000_results.json casting_simulation_20250407_120000_config.yaml
-
-python3 run_simulation.py aluminum.yaml sandCastingBase --test

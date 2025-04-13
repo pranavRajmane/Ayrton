@@ -8,34 +8,31 @@
 FoamFile
 {
     format      ascii;
-    class       polyBoundaryMesh;
-    location    "constant/polyMesh";
-    object      boundary;
+    class       cellSet;
+    location    "constant/polyMesh/sets";
+    object      massSource;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-3
+
+16
 (
-    inlet
-    {
-        type            wall;
-        inGroups        List<word> 1(wall);
-        nFaces          28;
-        startFace       79726;
-    }
-    riser
-    {
-        type            patch;
-        nFaces          47;
-        startFace       79754;
-    }
-    model
-    {
-        type            wall;
-        inGroups        List<word> 1(wall);
-        nFaces          21027;
-        startFace       79801;
-    }
+23996 
+24401 
+24420 
+24464 
+25518 
+25519 
+25520 
+25904 
+25905 
+25906 
+25937 
+25938 
+25939 
+25974 
+25975 
+25976 
 )
 
 // ************************************************************************* //

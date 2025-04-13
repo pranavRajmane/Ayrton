@@ -37,8 +37,8 @@ function show_help {
     echo "  -h, --help             Show this help message"
     echo ""
     echo "Example: $0 --config aluminum.yaml --base sandCastingBase"
-    echo "         $0 --analyze-only casting_simulation_20250407_120000"
-    echo "         $0 --analyze-only casting_simulation_20250407_120000 --force --detailed-report"
+    echo "         $0 --analyze-only filling_simulation_20250407_120000"
+    echo "         $0 --analyze-only filling_simulation_20250407_120000 --force --detailed-report"
 }
 
 # Parse command line arguments
@@ -169,7 +169,7 @@ if [ $EXIT_CODE -ne 0 ]; then
 fi
 
 # Find the latest simulation directory and results file
-SIM_DIR=$(ls -d casting_simulation_* | sort | tail -1)
+SIM_DIR=$(ls -d filling_simulation_* | sort | tail -1)
 
 if [ ! -d "$SIM_DIR" ]; then
     echo "Error: Simulation directory not found."

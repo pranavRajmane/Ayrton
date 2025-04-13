@@ -27,12 +27,12 @@ boundaryField
         type            zeroGradient;
     }
 
-    inlet
-    {
-        type            inletOutlet;
-        inletValue      $internalField;
-        value           $internalField;
-    }
+    // inlet
+    // {
+    //     type            inletOutlet;
+    //     inletValue      $internalField;
+    //     value           $internalField;
+    // }
     riser
     {
         type            inletOutlet;

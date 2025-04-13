@@ -8,34 +8,40 @@
 FoamFile
 {
     format      ascii;
-    class       polyBoundaryMesh;
-    location    "constant/polyMesh";
-    object      boundary;
+    class       dictionary;
+    location    "constant";
+    object      physicalProperties;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-3
-(
-    inlet
+thermoType
+{
+    type            heRhoThermo;
+    mixture         pureMixture;
+    transport       const;
+    thermo          hConst;
+    equationOfState perfectGas;
+    specie          specie;
+    energy          sensibleInternalEnergy;
+}
+
+mixture
+{
+    specie
     {
-        type            wall;
-        inGroups        List<word> 1(wall);
-        nFaces          28;
-        startFace       79726;
+        molWeight   28.9;
     }
-    riser
+    thermodynamics
     {
-        type            patch;
-        nFaces          47;
-        startFace       79754;
+        Cp          1007;
+        hf          0;
     }
-    model
+    transport
     {
-        type            wall;
-        inGroups        List<word> 1(wall);
-        nFaces          21027;
-        startFace       79801;
+        mu          1.84e-05;
+        Pr          0.7;
     }
-)
+}
+
 
 // ************************************************************************* //
