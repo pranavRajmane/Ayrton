@@ -1,14 +1,14 @@
 #!/bin/bash
 # OpenFOAM run script with mesh generation and solver execution
 
-# echo "Creating blockMesh using Python script..."
-# python3 createBlockMesh.py constant/triSurface/model.stl
+echo "Creating blockMesh using Python script..."
+python3 createBlockMesh.py constant/triSurface/model.stl
 
-# echo "Running blockMesh..."
-# blockMesh
+echo "Running blockMesh..."
+blockMesh
 
-# echo "Running snappyHexMesh..."
-# snappyHexMesh -overwrite
+echo "Running snappyHexMesh..."
+snappyHexMesh -overwrite
 
 echo "Running topoSet..."
 topoSet

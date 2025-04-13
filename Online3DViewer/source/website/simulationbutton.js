@@ -424,8 +424,56 @@ async uploadGlbToServer(file, groupName, groupIndex) {
     }
 }
 
-// Create a singleton instance
+/**
+ * RedirectButton - A button next to the simulate button that redirects to a specified URL
+ */
+class RedirectButton {
+    constructor() {
+        this.redirectButton = null;
+        this.redirectUrl = 'http://3.93.194.93:3000';
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            this.initializeButton();
+        });
+    }
+    
+    /**
+     * Create and add the Redirect button to the toolbar
+     */
+    initializeButton() {
+        // Wait for toolbar and simulate button to be available
+        const waitForToolbar = () => {
+            const simulateButton = document.querySelector('.ov_toolbar .ov_toolbar_button[title="Simulate Physical Groups"]');
+            if (!simulateButton) {
+                setTimeout(waitForToolbar, 100);
+                return;
+            }
+            
+            // Create redirect button
+            this.redirectButton = document.createElement('div');
+            this.redirectButton.className = 'ov_toolbar_button';
+            this.redirectButton.title = 'Open External Tool';
+            
+            // Add icon to button (using share icon)
+            AddSvgIconElement(this.redirectButton, 'share');
+            
+            // Add handler for button click
+            this.redirectButton.addEventListener('click', () => {
+                window.open(this.redirectUrl, '_blank');
+            });
+            
+            // Insert button right after the simulate button
+            simulateButton.parentNode.insertBefore(this.redirectButton, simulateButton.nextSibling);
+        };
+        
+        waitForToolbar();
+    }
+}
+
+// Create singleton instances
 const simulationButton = new SimulationButton();
+const redirectButton = new RedirectButton();
 
 // Export for external access
-export { simulationButton };
+export { simulationButton, redirectButton };

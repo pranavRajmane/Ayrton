@@ -14,7 +14,7 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-2
+1
 (
 fluid
 {
@@ -17622,12 +17622,6 @@ cellLabels      List<label>
 30116
 )
 ;
-}
-
-massSource
-{
-    type cellZone;
-cellLabels      List<label> 0();
 }
 )
 

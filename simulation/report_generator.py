@@ -1755,4 +1755,5 @@ def get_score_assessment(score):
         return "Poor", "red"
     else:
         return "Critical", "darkred"
+
         

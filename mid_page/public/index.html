@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tell me about the mold</title>
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/helvetica-neue-9');
+        
+        body {
+            background-color: #3b0d0d;
+            background-image: linear-gradient(to bottom, #3b0d0d, #1a0000);
+            color: white;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
+        }
+        .container {
+            text-align: center;
+            width: 80%;
+            max-width: 1200px;
+            transition: opacity 0.5s ease;
+        }
+        h1.animated-text {
+            font-size: 95px;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            white-space: normal;
+            overflow: visible;
+            display: block;
+            width: 100%;
+            line-height: 1.2;
+        }
+        h1.animated-text span {
+            position: relative;
+            display: block;
+            overflow: hidden;
+            clip-path: inset(0 100% 0 0);
+        }
+        h1.animated-text.mold .line1 {
+            animation: typing 1s steps(7, end) forwards;
+        }
+        h1.animated-text.mold .line2 {
+            animation: typing 1.5s steps(13, end) forwards 1s;
+        }
+        h1.animated-text.melt .line1 {
+            animation: typing 1s steps(7, end) forwards;
+        }
+        h1.animated-text.melt .line2 {
+            animation: typing 1.5s steps(13, end) forwards 1s;
+        }
+        @keyframes typing {
+            from { 
+                clip-path: inset(0 100% 0 0);
+            }
+            to { 
+                clip-path: inset(0 0 0 0);
+            }
+        }
+        .container.slide-down {
+            animation: slideDown 1s ease-in-out forwards;
+        }
+        @keyframes slideDown {
+            from {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(20vh);
+                opacity: 0;
+            }
+        }
+        .container.slide-up {
+            animation: slideUp 1s ease-in-out forwards;
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(20vh);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        .input-container {
+            width: 100%;
+            margin-top: 2rem;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: white;
+            padding: 12px;
+            font-size: 1rem;
+            resize: none;
+        }
+        /* Simulation button styles */
+        .sim-button {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: white;
+            background-color: #8b0000;
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(139, 0, 0, 0.5);
+        }
+        .sim-button:hover {
+            background-color: #a50000;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 30px rgba(139, 0, 0, 0.7);
+        }
+        .sim-button:active {
+            transform: scale(0.95);
+        }
+        /* Stop button styles */
+        .stop-button {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: white;
+            background-color: #003087; /* Blue color */
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(0, 48, 135, 0.5);
+            margin-top: 2rem; /* Space below message */
+        }
+        .stop-button:hover {
+            background-color: #0041b3; /* Lighter blue */
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 30px rgba(0, 48, 135, 0.7);
+        }
+        .stop-button:active {
+            transform: scale(0.95);
+        }
+        /* Simulation message */
+        .sim-message {
+            font-size: 2rem;
+            font-weight: bold;
+            opacity: 0;
+            animation: fadeIn 1s ease forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .note {
+            margin-top: 2rem;
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+        /* Added for simulation status */
+        .status-message {
+            margin-top: 1rem;
+            font-size: 1.2rem;
+            font-style: italic;
+        }
+        
+        /* Results button styles */
+        .results-button {
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: white;
+            background-color: #008700; /* Green color */
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(0, 135, 0, 0.5);
+            margin-top: 2rem; /* Space below other elements */
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .results-button:hover {
+            background-color: #00a300; /* Lighter green */
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5), 0 0 30px rgba(0, 135, 0, 0.7);
+        }
+        .results-button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="main-container">
+        <h1 class="animated-text mold">
+            <span class="line1">TELL ME</span>
+            <span class="line2">ABOUT THE MOLD</span>
+        </h1>
+        <div class="input-container">
+            <textarea id="moldInfo" placeholder="Enter your experience with the mold here... Press Enter to submit" onkeydown="checkForEnter(event)"></textarea>
+        </div>
+        <div class="note">
+            Your information will be stored in our database for research purposes.
+        </div>
+    </div>
+
+    <script>
+        let currentInterface = 'mold';
+        let simulationRunning = false;
+
+        function checkForEnter(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                submitInfo();
+            }
+        }
+        
+        function submitInfo() {
+            const moldInfo = document.getElementById('moldInfo').value;
+            if (moldInfo.trim() === '') {
+                alert(`Please enter information about the ${currentInterface === 'mold' ? 'mold' : 'melt'}.`);
+                return;
+            }
+            
+            const endpoint = currentInterface === 'mold' ? '/save-mold-info' : '/save-melt-info';
+            
+            fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ info: moldInfo }),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Success:', data);
+                transitionInterface();
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert('There was an error submitting your information.');
+                transitionInterface(); // Proceed for demo
+            });
+        }
+
+        function transitionInterface() {
+            const container = document.getElementById('main-container');
+            
+            container.classList.add('slide-down');
+            
+            setTimeout(() => {
+                if (currentInterface === 'mold') {
+                    container.innerHTML = `
+                        <h1 class="animated-text melt">
+                            <span class="line1">TELL US</span>
+                            <span class="line2">ABOUT THE MELT</span>
+                        </h1>
+                        <div class="input-container">
+                            <textarea id="moldInfo" placeholder="Enter your experience with the melt here... Press Enter to submit" onkeydown="checkForEnter(event)"></textarea>
+                        </div>
+                        <div class="note">
+                            Your information will be stored in our database for research purposes.
+                        </div>
+                    `;
+                    currentInterface = 'melt';
+                } else if (currentInterface === 'melt') {
+                    container.innerHTML = `
+                        <button class="sim-button" onclick="startSimulation()">Simulate</button>
+                    `;
+                    currentInterface = 'simulation';
+                }
+                
+                container.classList.remove('slide-down');
+                container.classList.add('slide-up');
+                
+                setTimeout(() => {
+                    container.classList.remove('slide-up');
+                }, 1000);
+            }, 1000);
+        }
+
+        function startSimulation() {
+            if (simulationRunning) return;
+            
+            const container = document.getElementById('main-container');
+            const button = container.querySelector('.sim-button');
+            
+            button.style.transition = 'opacity 0.5s ease';
+            button.style.opacity = '0';
+            simulationRunning = true;
+            
+            setTimeout(() => {
+                container.innerHTML = `
+                    <div class="sim-message">Simulation has begun</div>
+                    <div class="status-message">Running simulation script...</div>
+                    <button class="stop-button" onclick="stopSimulation()">Stop</button>
+                    <button class="results-button" onclick="getResults()" style="display: none;">Get Results</button>
+                `;
+                
+                // Call the server to run the simulation script
+                fetch('/run-simulation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const statusEl = container.querySelector('.status-message');
+                    const resultsBtn = container.querySelector('.results-button');
+                    
+                    if (data.success) {
+                        statusEl.textContent = 'Simulation completed successfully!';
+                        console.log('Simulation output:', data.output);
+                        
+                        // Show the Get Results button
+                        resultsBtn.style.display = 'block';
+                    } else {
+                        statusEl.textContent = 'Simulation failed: ' + data.message;
+                        console.error('Simulation error:', data.error);
+                    }
+                    simulationRunning = false;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    const statusEl = container.querySelector('.status-message');
+                    statusEl.textContent = 'Error running simulation. Check console for details.';
+                    simulationRunning = false;
+                });
+            }, 500);
+        }
+
+        function stopSimulation() {
+            if (!simulationRunning) return;
+            
+            // Here you would add code to call a server endpoint to stop the simulation
+            // For now, just updating the UI
+            const container = document.getElementById('main-container');
+            const statusEl = container.querySelector('.status-message');
+            statusEl.textContent = 'Simulation stopped by user.';
+            simulationRunning = false;
+            
+            console.log('Stop button clicked');
+            
+            // Optional: Add an actual server call to stop the simulation process
+            // fetch('/stop-simulation', {
+            //     method: 'POST',
+            //     headers: {
+            //         'Content-Type': 'application/json'
+            //     }
+            // })
+            // .then(response => response.json())
+            // .then(data => {
+            //     console.log('Stop simulation response:', data);
+            // })
+            // .catch(error => {
+            //     console.error('Error stopping simulation:', error);
+            // });
+        }
+        
+        function getResults() {
+            // Open the results PDF in a new tab
+            const pdfPath = '/simulation-results/filling_simulation_20250413_021032_report.pdf';
+            window.open(pdfPath, '_blank');
+            
+            console.log('Get Results button clicked');
+        }
+    </script>
+</body>
+</html>
